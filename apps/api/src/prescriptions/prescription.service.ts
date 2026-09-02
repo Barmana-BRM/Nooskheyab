@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma} from '@prisma/client';
-import { type AvailabilityStatus, type PrescriptionStatus, type UserRole } from '@prisma/client';
+import { type AvailabilityStatus, type PrescriptionStatus } from '@prisma/client';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
 import type { ConfigService } from '@nestjs/config';

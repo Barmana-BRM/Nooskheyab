@@ -221,6 +221,13 @@ export class AuthService {
       httpOnly: true,
       sameSite: 'lax',
       secure: this.config.get('NODE_ENV') === 'production',
+      path: '/api/v1/auth',
+    });
+    response.clearCookie(CSRF_COOKIE_NAME, {
+      httpOnly: false,
+      sameSite: 'lax',
+      secure: this.config.get('NODE_ENV') === 'production',
+      path: '/api/v1/auth',
     });
   }
 

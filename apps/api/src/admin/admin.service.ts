@@ -206,7 +206,7 @@ export class AdminService {
       userAgent: request.get('user-agent') ?? '',
       metadata: { pharmacyId: pharmacy.id, source: 'admin' },
     });
-    return { id: pharmacy.id, status: pharmacy.registrationStatus };
+    return { id: pharmacy.id, status: 'DRAFT' };
   }
 
   async updatePharmacy(

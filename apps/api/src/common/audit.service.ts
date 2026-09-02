@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from './prisma.service';
+import type { Prisma } from '@prisma/client';
+import type { PrismaService } from './prisma.service';
 import { redactAuditMetadata } from './masking';
 
 export interface AuditContext {

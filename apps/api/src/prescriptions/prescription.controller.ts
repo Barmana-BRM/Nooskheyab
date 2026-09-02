@@ -1,8 +1,8 @@
 import { Body, Controller, Headers, Param, Post, Get, Req } from '@nestjs/common';
 import type { RequestWithContext } from '../common/request-context';
 import { PUBLIC_TOKEN_HEADER } from '../common/constants';
-import { CreatePrescriptionDto, SelectPharmacyDto } from './prescription.dto';
-import { PrescriptionService } from './prescription.service';
+import type { CreatePrescriptionDto, SelectPharmacyDto } from './prescription.dto';
+import type { PrescriptionService } from './prescription.service';
 
 @Controller('prescriptions')
 export class PrescriptionController {

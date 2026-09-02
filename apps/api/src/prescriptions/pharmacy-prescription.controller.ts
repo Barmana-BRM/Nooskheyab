@@ -5,8 +5,8 @@ import type { AuthenticatedUser, RequestWithContext } from '../common/request-co
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { ApprovedPharmacyGuard } from '../auth/approved-pharmacy.guard';
-import { PrescriptionListQueryDto, RespondPrescriptionDto } from './prescription.dto';
-import { PrescriptionService } from './prescription.service';
+import type { PrescriptionListQueryDto, RespondPrescriptionDto } from './prescription.dto';
+import type { PrescriptionService } from './prescription.service';
 
 @Controller('pharmacy')
 @UseGuards(JwtAuthGuard, RolesGuard, ApprovedPharmacyGuard)

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { InsuranceType } from '@prisma/client';
-import { PrismaService } from '../common/prisma.service';
-import { RedisService } from '../common/redis.service';
+import type { PrismaService } from '../common/prisma.service';
+import type { RedisService } from '../common/redis.service';
 
 @Injectable()
 export class InsuranceService {

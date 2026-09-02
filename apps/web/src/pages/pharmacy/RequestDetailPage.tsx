@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { pharmacyResponseSchema } from '@pharmacy-mvp/validation';
 import { api } from '../../lib/api';
 import { formatJalaliDateTime, remainingLabel } from '../../lib/date';

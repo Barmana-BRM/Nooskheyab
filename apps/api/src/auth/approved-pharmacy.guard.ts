@@ -1,5 +1,6 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
-import { PrismaService } from '../common/prisma.service';
+import type { CanActivate, ExecutionContext} from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import type { PrismaService } from '../common/prisma.service';
 import type { RequestWithContext } from '../common/request-context';
 
 @Injectable()

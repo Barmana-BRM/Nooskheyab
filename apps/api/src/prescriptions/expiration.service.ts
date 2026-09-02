@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from '../common/prisma.service';
-import { RedisService } from '../common/redis.service';
+import type { PrismaService } from '../common/prisma.service';
+import type { RedisService } from '../common/redis.service';
 
 @Injectable()
 export class ExpirationService {

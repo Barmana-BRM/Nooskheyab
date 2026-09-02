@@ -1,17 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type AvailabilityStatus, type PrescriptionStatus, type UserRole } from '@prisma/client';
+import type { Prisma} from '@prisma/client';
+import { type AvailabilityStatus, type PrescriptionStatus, type UserRole } from '@prisma/client';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
-import { ConfigService } from '@nestjs/config';
+import type { ConfigService } from '@nestjs/config';
 import { prescriptionCreateSchema, pharmacyResponseSchema } from '@pharmacy-mvp/validation';
-import { AuditService } from '../common/audit.service';
+import type { AuditService } from '../common/audit.service';
 import { AppError, conflict, publicNotFound } from '../common/errors';
 import { MAX_PAGE_LIMIT } from '../common/constants';
 import { maskMobile, maskNationalId } from '../common/masking';
-import { PrismaService } from '../common/prisma.service';
-import { RedisService } from '../common/redis.service';
+import type { PrismaService } from '../common/prisma.service';
+import type { RedisService } from '../common/redis.service';
 import type { RequestWithContext } from '../common/request-context';
-import { InsuranceService } from '../insurance/insurance.service';
+import type { InsuranceService } from '../insurance/insurance.service';
 import { aggregatePrescriptionStatus } from './status-aggregator';
 import type { CreatePrescriptionDto, PrescriptionListQueryDto, RespondPrescriptionDto } from './prescription.dto';
 

@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { pharmacyRegistrationSchema } from '@pharmacy-mvp/validation';
 import { api } from '../../lib/api';
 import { Button, Card, Input, PageTitle, Textarea } from '../../components/ui';

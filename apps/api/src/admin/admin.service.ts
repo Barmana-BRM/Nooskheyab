@@ -1,15 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type UserRole } from '@prisma/client';
-import { ConfigService } from '@nestjs/config';
+import type { Prisma} from '@prisma/client';
+import { type UserRole } from '@prisma/client';
+import type { ConfigService } from '@nestjs/config';
 import argon2 from 'argon2';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
 import { normalizeMobile } from '@pharmacy-mvp/validation';
-import { AuditService } from '../common/audit.service';
+import type { AuditService } from '../common/audit.service';
 import { AppError, conflict } from '../common/errors';
-import { PrismaService } from '../common/prisma.service';
+import type { PrismaService } from '../common/prisma.service';
 import type { RequestWithContext } from '../common/request-context';
-import { PharmacyService } from '../pharmacy/pharmacy.service';
-import { PrescriptionService } from '../prescriptions/prescription.service';
+import type { PharmacyService } from '../pharmacy/pharmacy.service';
+import type { PrescriptionService } from '../prescriptions/prescription.service';
 import type { CreateAdminUserDto, CreateInsuranceDto, UpdateInsuranceDto, UpdateUserDto } from './admin.dto';
 
 @Injectable()

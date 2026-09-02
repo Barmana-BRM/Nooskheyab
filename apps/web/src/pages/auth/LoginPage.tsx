@@ -7,7 +7,7 @@ import { loginSchema } from '@pharmacy-mvp/validation';
 import { api } from '../../lib/api';
 import { authStorage } from '../../lib/auth';
 import { Button, Card, Input, PageTitle } from '../../components/ui';
-import { z } from 'zod';
+import type { z } from 'zod';
 
 type LoginInput = z.infer<typeof loginSchema>;
 

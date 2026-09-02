@@ -5,8 +5,8 @@ import { Roles, CurrentUser } from '../common/auth.decorators';
 import type { AuthenticatedUser, RequestWithContext } from '../common/request-context';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { PharmacyService } from './pharmacy.service';
-import { DocumentUploadDto, RegisterPharmacyDto, UpdatePharmacyDto } from './pharmacy.dto';
+import type { PharmacyService } from './pharmacy.service';
+import type { DocumentUploadDto, RegisterPharmacyDto, UpdatePharmacyDto } from './pharmacy.dto';
 
 @Controller('pharmacy')
 export class PharmacyController {

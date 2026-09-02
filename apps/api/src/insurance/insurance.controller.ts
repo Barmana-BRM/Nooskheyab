@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { InsuranceService } from './insurance.service';
+import type { InsuranceService } from './insurance.service';
 
 @Controller('insurance')
 export class InsuranceController {

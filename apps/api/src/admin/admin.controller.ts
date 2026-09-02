@@ -3,9 +3,9 @@ import { CurrentUser, Roles } from '../common/auth.decorators';
 import type { AuthenticatedUser, RequestWithContext } from '../common/request-context';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { AdminDecisionDto, CreateAdminUserDto, CreateInsuranceDto, UpdateInsuranceDto, UpdateUserDto } from './admin.dto';
-import { AdminService } from './admin.service';
-import { PrescriptionListQueryDto } from '../prescriptions/prescription.dto';
+import type { AdminDecisionDto, CreateAdminUserDto, CreateInsuranceDto, UpdateInsuranceDto, UpdateUserDto } from './admin.dto';
+import type { AdminService } from './admin.service';
+import type { PrescriptionListQueryDto } from '../prescriptions/prescription.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)

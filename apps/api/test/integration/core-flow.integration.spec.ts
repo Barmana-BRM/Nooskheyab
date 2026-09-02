@@ -94,7 +94,7 @@ describe('database and Redis integration', () => {
         publicId: `RX-INT${suffix.slice(0, 8).toUpperCase()}`,
         accessTokenHash: `hash-${suffix}`,
         mobile: '09123456789',
-        nationalId: '0012446663',
+        nationalId: '0012446661',
         prescriptionTrackingCode: `TRACK-${suffix}`,
         baseInsuranceId: insurance.id,
         expiresAt: new Date(Date.now() + 86_400_000),

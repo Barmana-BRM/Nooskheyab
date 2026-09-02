@@ -13,9 +13,9 @@ describe('shared validation', () => {
   });
 
   it('validates the Iranian national id checksum', () => {
-    expect(isValidIranianNationalId('0012446663')).toBe(true);
+    expect(isValidIranianNationalId('0012446661')).toBe(true);
     expect(isValidIranianNationalId('0000000000')).toBe(false);
-    expect(isValidIranianNationalId('0012446664')).toBe(false);
+    expect(isValidIranianNationalId('0012446662')).toBe(false);
   });
 
   it('requires a meaningful explanation for partial availability', () => {
@@ -36,7 +36,7 @@ describe('shared validation', () => {
   it('clears supplementary values when the patient has no supplementary insurance', () => {
     const result = prescriptionCreateSchema.safeParse({
       mobile: '09123456789',
-      nationalId: '0012446663',
+      nationalId: '0012446661',
       prescriptionTrackingCode: 'RX-1234',
       baseInsuranceId: '00000000-0000-0000-0000-000000000000',
       hasSupplementaryInsurance: false,

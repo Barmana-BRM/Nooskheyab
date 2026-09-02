@@ -39,6 +39,12 @@ export class PrescriptionService {
   ) {}
 
   async create(body: CreatePrescriptionDto, request: RequestWithContext): Promise<PublicPrescriptionData> {
+    const createAllowed = await this.redis.consumeRateLimit(
+      `pharmacy-mvp:prescription-create:${request.ip ?? 'unknown'}`,
+      this.config.get('PRESCRIPTION_CREATE_RATE_LIMIT'),
+      this.config.get('PRESCRIPTION_CREATE_RATE_WINDOW_SECONDS'),
+    );
+    if (!createAllowed) throw new AppError('RATE_LIMITED', 'تعداد ثبت درخواست بیش از حد مجاز است.', 429);
     const parsed = prescriptionCreateSchema.safeParse({
       mobile: body.mobile,
       nationalId: body.nationalId,
@@ -131,6 +137,8 @@ export class PrescriptionService {
   }
 
   async getPublic(publicId: string, rawToken: string | undefined): Promise<Record<string, unknown>> {
+    const publicAllowed = await this.redis.consumeRateLimit(`pharmacy-mvp:prescription-status:${requestSafeIp(publicId, rawToken)}`, 60, 60);
+    if (!publicAllowed) throw new AppError('RATE_LIMITED', 'تعداد درخواست‌ها بیش از حد مجاز است.', 429);
     const prescription = await this.findByPublicToken(publicId, rawToken);
     await this.expireIfNeeded(prescription.id, prescription.expiresAt, prescription.selectedPharmacyId, prescription.cancelledAt, prescription.completedAt);
     const data = await this.prisma.prescription.findUnique({

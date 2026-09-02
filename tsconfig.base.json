@@ -14,10 +14,10 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@pharmacy-mvp/types": ["packages/types/src/index.ts"],
-      "@pharmacy-mvp/validation": ["packages/validation/src/index.ts"],
-      "@pharmacy-mvp/config": ["packages/config/src/index.ts"],
-      "@pharmacy-mvp/api-client": ["packages/api-client/src/index.ts"]
+      "@pharmacy-mvp/types": ["packages/types/dist/index.d.ts"],
+      "@pharmacy-mvp/validation": ["packages/validation/dist/index.d.ts"],
+      "@pharmacy-mvp/config": ["packages/config/dist/index.d.ts"],
+      "@pharmacy-mvp/api-client": ["packages/api-client/dist/index.d.ts"]
     },
     "skipLibCheck": true,
     "declaration": true,

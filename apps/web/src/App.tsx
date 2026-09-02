@@ -21,7 +21,6 @@ const AdminDashboard = lazy(() => import('./pages/admin/DashboardPage').then((mo
 const AdminPrescriptions = lazy(() => import('./pages/admin/PrescriptionsPage').then((module) => ({ default: module.AdminPrescriptionsPage })));
 const AdminRegistrations = lazy(() => import('./pages/admin/RegistrationsPage').then((module) => ({ default: module.RegistrationsPage })));
 const AdminRegistrationDetail = lazy(() => import('./pages/admin/RegistrationDetailPage').then((module) => ({ default: module.RegistrationDetailPage })));
-const PlaceholderPage = lazy(() => import('./pages/admin/PlaceholderPage').then((module) => ({ default: module.PlaceholderPage })));
 const AdminPharmacies = lazy(() => import('./pages/admin/PharmaciesPage').then((module) => ({ default: module.PharmaciesPage })));
 const AdminUsers = lazy(() => import('./pages/admin/UsersPage').then((module) => ({ default: module.UsersPage })));
 const AdminInsurance = lazy(() => import('./pages/admin/InsurancePage').then((module) => ({ default: module.InsurancePage })));

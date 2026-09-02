@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import { type AvailabilityStatus, type PrescriptionStatus } from '@prisma/client';
+import {
+  type AvailabilityStatus,
+  type PrescriptionRequestStatus,
+  type PrescriptionStatus,
+} from '@prisma/client';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
 import { ConfigService } from '@nestjs/config';
@@ -418,7 +422,7 @@ export class PrescriptionService {
       ...(dateRange ? { sentAt: dateRange } : {}),
       ...(query.status &&
       ['SENT', 'VIEWED', 'RESPONDED', 'SELECTED', 'CLOSED', 'EXPIRED'].includes(query.status)
-        ? { status: query.status as never }
+        ? { status: query.status as PrescriptionRequestStatus }
         : {}),
       ...(query.search
         ? {
@@ -676,7 +680,7 @@ export class PrescriptionService {
         'COMPLETED',
         'CANCELLED',
       ].includes(query.status)
-        ? { status: query.status as never }
+        ? { status: query.status as PrescriptionStatus }
         : {}),
       ...(search
         ? {

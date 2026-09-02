@@ -46,7 +46,7 @@ export const SuccessPage = () => {
         </button>
       </div>
       {copied ? <p className="muted">کد کپی شد.</p> : null}
-      <Card style={{ textAlign: 'right' } as never}>
+      <Card style={{ textAlign: 'right' }}>
         <p style={{ marginTop: 0 }}>
           اعتبار درخواست تا <strong>{formatJalaliDateTime(state.expiresAt)}</strong> است.
         </p>

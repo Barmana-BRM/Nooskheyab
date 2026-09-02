@@ -35,7 +35,7 @@ export const LoginPage = ({ kind }: { kind: 'pharmacy' | 'admin' }) => {
     },
   });
   return (
-    <main className="form-page" style={{ paddingTop: '7vh' } as never}>
+    <main className="form-page" style={{ paddingTop: '7vh' }}>
       <PageTitle
         title={kind === 'pharmacy' ? 'ورود داروخانه' : 'ورود مدیریت سامانه'}
         description="برای دسترسی امن، نام کاربری و رمز عبور خود را وارد کنید."

@@ -65,6 +65,10 @@ export class AdminService {
     return this.pharmacy.status(id);
   }
 
+  documentUrl(pharmacyId: string, documentId: string) {
+    return this.pharmacy.adminSignedDocumentUrl(pharmacyId, documentId);
+  }
+
   reviewRegistration(id: string, adminId: string, action: 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED', message: string | undefined, request: RequestWithContext) {
     return this.pharmacy.adminReview(id, adminId, action, message ? { message } : undefined, request);
   }

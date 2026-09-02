@@ -19,17 +19,18 @@ export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   async record(context: AuditContext): Promise<void> {
+    const data: Prisma.AuditLogUncheckedCreateInput = {
+      actorUserId: context.actorUserId ?? null,
+      action: context.action,
+      entityType: context.entityType,
+      entityId: context.entityId ?? null,
+      requestId: context.requestId,
+      ipAddress: context.ipAddress.slice(0, 80),
+      userAgent: context.userAgent.slice(0, 300),
+      metadataJson: redactAuditMetadata(context.metadata ?? {}) as Prisma.InputJsonValue,
+    };
     await this.prisma.auditLog.create({
-      data: {
-        actorUserId: context.actorUserId,
-        action: context.action,
-        entityType: context.entityType,
-        entityId: context.entityId,
-        requestId: context.requestId,
-        ipAddress: context.ipAddress.slice(0, 80),
-        userAgent: context.userAgent.slice(0, 300),
-        metadataJson: redactAuditMetadata(context.metadata ?? {}) as Prisma.InputJsonValue,
-      },
+      data,
     });
   }
 }

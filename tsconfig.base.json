@@ -12,6 +12,13 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@pharmacy-mvp/types": ["packages/types/src/index.ts"],
+      "@pharmacy-mvp/validation": ["packages/validation/src/index.ts"],
+      "@pharmacy-mvp/config": ["packages/config/src/index.ts"],
+      "@pharmacy-mvp/api-client": ["packages/api-client/src/index.ts"]
+    },
     "skipLibCheck": true,
     "declaration": true,
     "declarationMap": true,

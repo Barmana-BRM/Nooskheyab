@@ -77,12 +77,12 @@ export class ApiClient {
 
   private async doRefresh(): Promise<boolean> {
     const refreshToken = await this.authStorage.getRefreshToken();
-    const response = await this.fetcher(`${this.baseUrl}/auth/refresh`, {
-      method: 'POST',
-      headers: refreshToken ? { 'Content-Type': 'application/json' } : undefined,
-      body: refreshToken ? JSON.stringify({ refreshToken }) : undefined,
-      credentials: 'include',
-    });
+    const refreshInit: RequestInit = { method: 'POST', credentials: 'include' };
+    if (refreshToken) {
+      refreshInit.headers = { 'Content-Type': 'application/json' };
+      refreshInit.body = JSON.stringify({ refreshToken });
+    }
+    const response = await this.fetcher(`${this.baseUrl}/auth/refresh`, refreshInit);
     if (!response.ok) {
       this.authStorage.setAccessToken(null);
       await this.authStorage.setRefreshToken(null);

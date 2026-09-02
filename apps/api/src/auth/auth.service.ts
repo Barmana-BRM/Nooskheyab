@@ -129,7 +129,8 @@ export class AuthService {
     const nextRefreshToken = randomBytes(48).toString('base64url');
     const nextExpiresAt = new Date(Date.now() + parseDurationMs(this.config.get('JWT_REFRESH_EXPIRES_IN')));
     const nextSession = await this.prisma.$transaction(async (transaction) => {
-      await transaction.refreshSession.update({ where: { id: session.id }, data: { revokedAt: new Date() } });
+      const revoked = await transaction.refreshSession.updateMany({ where: { id: session.id, revokedAt: null, expiresAt: { gt: new Date() } }, data: { revokedAt: new Date() } });
+      if (revoked.count !== 1) throw genericLoginError();
       return transaction.refreshSession.create({
         data: {
           userId: session.userId,

@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+.git
+.env
+apps/web/android
+apps/web/ios
+playwright-report
+test-results

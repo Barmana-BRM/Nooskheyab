@@ -872,6 +872,36 @@ export class PrescriptionService {
     return Number.isInteger(limit) && limit > 0 ? Math.min(limit, MAX_PAGE_LIMIT) : 20;
   }
 
+  private parseDateRange(
+    dateFrom: string | undefined,
+    dateTo: string | undefined,
+  ): { gte?: Date; lt?: Date } | undefined {
+    if (!dateFrom && !dateTo) return undefined;
+    const range: { gte?: Date; lt?: Date } = {};
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      if (Number.isNaN(from.getTime()))
+        throw new AppError('VALIDATION_ERROR', 'تاریخ شروع معتبر نیست.', 422, {
+          dateFrom: 'تاریخ شروع معتبر نیست.',
+        });
+      range.gte = from;
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      if (Number.isNaN(to.getTime()))
+        throw new AppError('VALIDATION_ERROR', 'تاریخ پایان معتبر نیست.', 422, {
+          dateTo: 'تاریخ پایان معتبر نیست.',
+        });
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateTo)) to.setUTCDate(to.getUTCDate() + 1);
+      range.lt = to;
+    }
+    if (range.gte && range.lt && range.gte >= range.lt)
+      throw new AppError('VALIDATION_ERROR', 'بازه تاریخ معتبر نیست.', 422, {
+        dateTo: 'تاریخ پایان باید بعد از تاریخ شروع باشد.',
+      });
+    return range;
+  }
+
   private mapPharmacyRow(
     row: Prisma.PrescriptionPharmacyRequestGetPayload<{
       include: {

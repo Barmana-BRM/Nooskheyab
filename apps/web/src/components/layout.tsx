@@ -5,7 +5,7 @@ import { authStorage } from '../lib/auth';
 import { api } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 
-export const PublicLayout = ({ children }: { children: ReactNode }) => <div className="public-shell"><header className="site-header"><Link to="/" className="brand-mark"><span className="brand-icon"><Stethoscope size={20} /></span><span>نسخه‌یار</span></Link><nav><Link to="/request">ثبت درخواست</Link><Link to="/pharmacy/login">ورود داروخانه</Link></nav></header>{children}<footer className="site-footer">اطلاعات نسخه فقط برای بررسی تأمین در سامانه استفاده می‌شود.</footer></div>;
+export const PublicLayout = () => <div className="public-shell"><header className="site-header"><Link to="/" className="brand-mark"><span className="brand-icon"><Stethoscope size={20} /></span><span>نسخه‌یار</span></Link><nav><Link to="/request">ثبت درخواست</Link><Link to="/pharmacy/login">ورود داروخانه</Link></nav></header><Outlet /><footer className="site-footer">اطلاعات نسخه فقط برای بررسی تأمین در سامانه استفاده می‌شود.</footer></div>;
 
 export const PortalLayout = ({ kind }: { kind: 'pharmacy' | 'admin' }) => {
   const [open, setOpen] = useState(false);

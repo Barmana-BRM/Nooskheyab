@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes, type HTMLAttributes } from 'react';
 
 export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }>(({ loading, children, className = '', disabled, ...props }, ref) => (
   <button ref={ref} className={`btn btn-primary ${className}`} disabled={disabled || loading} {...props}>
@@ -22,7 +22,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 });
 Textarea.displayName = 'Textarea';
 
-export const Card = ({ children, className = '' }: { children: ReactNode; className?: string }) => <section className={`card ${className}`}>{children}</section>;
+export const Card = ({ children, className = '', ...props }: HTMLAttributes<HTMLElement> & { children: ReactNode }) => <section className={`card ${className}`} {...props}>{children}</section>;
 export const PageTitle = ({ title, description }: { title: string; description?: string }) => <div className="page-title"><h1>{title}</h1>{description ? <p>{description}</p> : null}</div>;
 export const Loading = () => <div className="state" role="status"><span className="spinner" />در حال دریافت اطلاعات…</div>;
 export const Empty = ({ children = 'موردی برای نمایش وجود ندارد.' }: { children?: ReactNode }) => <div className="state">{children}</div>;

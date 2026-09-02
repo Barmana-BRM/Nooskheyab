@@ -6,6 +6,7 @@ COPY apps/api/package.json apps/api/package.json
 COPY packages packages
 RUN npm ci --ignore-scripts
 COPY apps/web apps/web
+ENV VITE_API_BASE_URL=/api/v1
 RUN npm run build:shared && npm run build:web
 
 FROM nginx:1.27-alpine

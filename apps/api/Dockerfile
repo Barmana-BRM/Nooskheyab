@@ -4,7 +4,7 @@ COPY package*.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages packages
-RUN npm ci --omit=dev --ignore-scripts=false || npm ci --ignore-scripts=false
+RUN npm ci --ignore-scripts=false
 COPY apps/api apps/api
 RUN npm run build:shared && npm run build:api
 

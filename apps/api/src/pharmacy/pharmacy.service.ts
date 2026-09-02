@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import type { Prisma} from '@prisma/client';
 import { type DocumentType, type RegistrationStatus } from '@prisma/client';
 import argon2 from 'argon2';
@@ -8,8 +8,8 @@ import { randomUUID } from 'node:crypto';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
 import { pharmacyRegistrationSchema, normalizeMobile } from '@pharmacy-mvp/validation';
 import { AppError, conflict } from '../common/errors';
-import type { AuditService } from '../common/audit.service';
-import type { PrismaService } from '../common/prisma.service';
+import { AuditService } from '../common/audit.service';
+import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 import type { RequestWithContext } from '../common/request-context';
 import type { RegisterPharmacyDto, ReviewMessageDto, UpdatePharmacyDto } from './pharmacy.dto';

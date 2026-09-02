@@ -1,5 +1,6 @@
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
 
@@ -7,8 +8,9 @@ import type { AppEnvironment } from '@pharmacy-mvp/config';
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   readonly client: Redis;
 
-  constructor(private readonly environment: AppEnvironment) {
-    this.client = new Redis(this.environment.REDIS_URL, {
+  constructor(config: ConfigService<AppEnvironment, true>) {
+    const environment = config.getAll();
+    this.client = new Redis(environment.REDIS_URL, {
       lazyConnect: true,
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,

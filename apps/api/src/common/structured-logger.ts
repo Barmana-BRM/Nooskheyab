@@ -1,11 +1,16 @@
 import { Injectable, type LoggerService } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
 
 @Injectable()
 export class StructuredLogger implements LoggerService {
   private context = 'application';
 
-  constructor(private readonly environment: AppEnvironment) {}
+  private readonly environment: AppEnvironment;
+
+  constructor(config: ConfigService<AppEnvironment, true>) {
+    this.environment = config.getAll();
+  }
 
   setContext(context: string): void {
     this.context = context;

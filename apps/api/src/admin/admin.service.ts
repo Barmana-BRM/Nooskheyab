@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { type UserRole } from '@prisma/client';
 import argon2 from 'argon2';
-import { mobileSchema, normalizeDigits, normalizeMobile } from '@pharmacy-mvp/validation';
+import { mobileSchema, normalizeDigits } from '@pharmacy-mvp/validation';
 import { AuditService } from '../common/audit.service';
 import { AppError } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
@@ -181,11 +181,12 @@ export class AdminService {
   ): Promise<{ id: string; status: 'DRAFT' }> {
     const mobile = mobileSchema.safeParse(body.mobile);
     const postalCode = normalizeDigits(body.postalCode).trim();
-    if (!mobile.success || !/^\d{10}$/.test(postalCode))
-      throw new AppError('VALIDATION_ERROR', 'اطلاعات تماس یا کد پستی معتبر نیست.', 422, {
-        mobile: mobile.success ? undefined : 'شماره موبایل معتبر نیست.',
-        postalCode: /^\d{10}$/.test(postalCode) ? undefined : 'کد پستی باید ۱۰ رقم باشد.',
-      });
+    if (!mobile.success || !/^\d{10}$/.test(postalCode)) {
+      const fields: Record<string, string> = {};
+      if (!mobile.success) fields.mobile = 'شماره موبایل معتبر نیست.';
+      if (!/^\d{10}$/.test(postalCode)) fields.postalCode = 'کد پستی باید ۱۰ رقم باشد.';
+      throw new AppError('VALIDATION_ERROR', 'اطلاعات تماس یا کد پستی معتبر نیست.', 422, fields);
+    }
     const pharmacy = await this.prisma.pharmacy.create({
       data: {
         name: body.name.trim(),
@@ -224,11 +225,12 @@ export class AdminService {
   ): Promise<{ updated: true }> {
     const mobile = mobileSchema.safeParse(body.mobile);
     const postalCode = normalizeDigits(body.postalCode).trim();
-    if (!mobile.success || !/^\d{10}$/.test(postalCode))
-      throw new AppError('VALIDATION_ERROR', 'اطلاعات تماس یا کد پستی معتبر نیست.', 422, {
-        mobile: mobile.success ? undefined : 'شماره موبایل معتبر نیست.',
-        postalCode: /^\d{10}$/.test(postalCode) ? undefined : 'کد پستی باید ۱۰ رقم باشد.',
-      });
+    if (!mobile.success || !/^\d{10}$/.test(postalCode)) {
+      const fields: Record<string, string> = {};
+      if (!mobile.success) fields.mobile = 'شماره موبایل معتبر نیست.';
+      if (!/^\d{10}$/.test(postalCode)) fields.postalCode = 'کد پستی باید ۱۰ رقم باشد.';
+      throw new AppError('VALIDATION_ERROR', 'اطلاعات تماس یا کد پستی معتبر نیست.', 422, fields);
+    }
     await this.prisma.pharmacy.update({
       where: { id },
       data: {

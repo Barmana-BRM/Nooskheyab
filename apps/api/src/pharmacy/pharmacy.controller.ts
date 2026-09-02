@@ -31,7 +31,7 @@ export class PharmacyController {
 
   @Get('registration-status')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('PHARMACY_ADMIN', 'PHARMACY_USER')
+  @Roles('PHARMACY_ADMIN')
   status(@CurrentUser() user: AuthenticatedUser) {
     return this.pharmacy.status(user.pharmacyId as string);
   }

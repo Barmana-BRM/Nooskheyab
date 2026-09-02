@@ -6,7 +6,7 @@ import argon2 from 'argon2';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
 import { normalizeMobile } from '@pharmacy-mvp/validation';
 import type { AuditService } from '../common/audit.service';
-import { AppError, conflict } from '../common/errors';
+import { AppError } from '../common/errors';
 import type { PrismaService } from '../common/prisma.service';
 import type { RequestWithContext } from '../common/request-context';
 import type { PharmacyService } from '../pharmacy/pharmacy.service';

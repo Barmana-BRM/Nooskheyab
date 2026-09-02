@@ -117,7 +117,7 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  async refresh(rawToken: string | undefined, request: RequestWithContext): Promise<TokenPair> {
+  async refresh(rawToken: string | undefined): Promise<TokenPair> {
     if (!rawToken) throw genericLoginError();
     const session = await this.prisma.refreshSession.findUnique({
       where: { refreshTokenHash: hashToken(rawToken) },

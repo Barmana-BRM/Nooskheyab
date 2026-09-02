@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma} from '@prisma/client';
 import { type AvailabilityStatus, type PrescriptionStatus, type UserRole } from '@prisma/client';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
 import type { ConfigService } from '@nestjs/config';
 import { prescriptionCreateSchema, pharmacyResponseSchema } from '@pharmacy-mvp/validation';
@@ -17,8 +17,7 @@ import { aggregatePrescriptionStatus } from './status-aggregator';
 import type { CreatePrescriptionDto, PrescriptionListQueryDto, RespondPrescriptionDto } from './prescription.dto';
 
 const hashAccessToken = (token: string): string => {
-  const hash = require('node:crypto').createHash('sha256').update(token).digest('hex') as string;
-  return hash;
+  return createHash('sha256').update(token).digest('hex');
 };
 
 export interface PublicPrescriptionData {
@@ -27,12 +26,6 @@ export interface PublicPrescriptionData {
   status: PrescriptionStatus;
   statusUrl: string;
   expiresAt: string;
-}
-
-interface UserContext {
-  id: string;
-  role: UserRole;
-  pharmacyId: string | null;
 }
 
 @Injectable()

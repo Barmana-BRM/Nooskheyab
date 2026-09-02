@@ -10,6 +10,12 @@ export const normalizeMobile = (value: string): string =>
 
 export const normalizeNationalId = (value: string): string => normalizeDigits(value).trim();
 
+const hasControlCharacters = (value: string): boolean =>
+  [...value].some((character) => {
+    const code = character.charCodeAt(0);
+    return (code >= 0 && code <= 31) || code === 127;
+  });
+
 export const isValidIranianNationalId = (input: string): boolean => {
   const value = normalizeNationalId(input);
   if (!/^\d{10}$/.test(value) || /^(\d)\1{9}$/.test(value)) return false;
@@ -44,7 +50,7 @@ export const prescriptionCreateSchema = z
           .string()
           .min(4, 'کد رهگیری نسخه حداقل ۴ کاراکتر است.')
           .max(50, 'کد رهگیری نسخه حداکثر ۵۰ کاراکتر است.')
-          .refine((value) => !/[\u0000-\u001F\u007F]/.test(value), 'کد رهگیری نسخه معتبر نیست.'),
+          .refine((value) => !hasControlCharacters(value), 'کد رهگیری نسخه معتبر نیست.'),
       ),
     baseInsuranceId: z.string().uuid('بیمه پایه را انتخاب کنید.'),
     hasSupplementaryInsurance: z.boolean(),

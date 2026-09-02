@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Headers, Post, Req, Res, UseGuards } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import type { AuthService } from './auth.service';
 import type { LoginDto, RefreshDto } from './auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -21,7 +21,7 @@ export class AuthController {
   @Post('refresh')
   async refresh(@Body() body: RefreshDto, @Req() request: RequestWithContext, @Res({ passthrough: true }) response: Response) {
     const cookieToken = request.cookies?.pharmacy_refresh as string | undefined;
-    const tokens = await this.auth.refresh(body.refreshToken ?? cookieToken, request);
+    const tokens = await this.auth.refresh(body.refreshToken ?? cookieToken);
     this.auth.setRefreshCookie(response, tokens.refreshToken);
     return { accessToken: tokens.accessToken, ...(body.refreshToken ? { refreshToken: tokens.refreshToken } : {}) };
   }

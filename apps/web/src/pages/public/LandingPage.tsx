@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, ClipboardList, Eye, Store } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ClipboardList } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button, Card } from '../../components/ui';
 

@@ -56,25 +56,31 @@ export class RespondPrescriptionDto {
 export class PrescriptionListQueryDto {
   @IsOptional()
   @IsString()
+  @MaxLength(40)
   status?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   search?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(30)
   page?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(30)
   limit?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(30)
   dateFrom?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(30)
   dateTo?: string;
 }

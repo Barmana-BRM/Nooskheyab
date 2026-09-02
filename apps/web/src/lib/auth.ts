@@ -7,6 +7,7 @@ const REFRESH_KEY = 'pharmacy-refresh-token';
 class PlatformAuthStorage implements AuthStorageAdapter {
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
+  private csrfToken: string | null = null;
 
   getAccessToken(): string | null {
     return this.accessToken;
@@ -37,6 +38,14 @@ class PlatformAuthStorage implements AuthStorageAdapter {
     } catch {
       this.refreshToken = null;
     }
+  }
+
+  getCsrfToken(): string | null {
+    return this.csrfToken;
+  }
+
+  setCsrfToken(token: string | null): void {
+    this.csrfToken = token;
   }
 }
 

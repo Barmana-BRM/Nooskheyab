@@ -83,26 +83,26 @@ enum NotificationType {
 }
 
 model User {
-  id                String           @id @default(uuid()) @db.Uuid
+  id                String                  @id @default(uuid()) @db.Uuid
   firstName         String
   lastName          String
-  username          String           @unique
-  email             String?          @unique
-  mobile            String           @unique
+  username          String                  @unique
+  email             String?                 @unique
+  mobile            String                  @unique
   passwordHash      String
   role              UserRole
-  pharmacyId        String?          @db.Uuid
-  isActive          Boolean          @default(true)
+  pharmacyId        String?                 @db.Uuid
+  isActive          Boolean                 @default(true)
   lastLoginAt       DateTime?
-  failedLoginCount  Int              @default(0)
+  failedLoginCount  Int                     @default(0)
   lockedUntil       DateTime?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
   deletedAt         DateTime?
-  pharmacy          Pharmacy?        @relation(fields: [pharmacyId], references: [id], onDelete: SetNull)
+  pharmacy          Pharmacy?               @relation(fields: [pharmacyId], references: [id], onDelete: SetNull)
   refreshSessions   RefreshSession[]
   auditLogs         AuditLog[]
-  uploadedDocuments PharmacyDocument[] @relation("UploadedDocuments")
+  uploadedDocuments PharmacyDocument[]      @relation("UploadedDocuments")
   responses         PharmacyResponse[]
   reviewHistory     PharmacyReviewHistory[]
   notifications     Notification[]
@@ -112,12 +112,12 @@ model User {
 }
 
 model Pharmacy {
-  id                         String                    @id @default(uuid()) @db.Uuid
+  id                         String                        @id @default(uuid()) @db.Uuid
   name                       String
   technicalManager           String
   technicalManagerIdentifier String?
-  pharmacyIdentifier         String?                   @unique
-  licenseNumber              String                    @unique
+  pharmacyIdentifier         String?                       @unique
+  licenseNumber              String                        @unique
   licenseExpirationDate      DateTime
   mobile                     String
   phone                      String
@@ -125,22 +125,22 @@ model Pharmacy {
   city                       String
   address                    String
   postalCode                 String
-  latitude                   Decimal?                  @db.Decimal(10, 7)
-  longitude                  Decimal?                  @db.Decimal(10, 7)
+  latitude                   Decimal?                      @db.Decimal(10, 7)
+  longitude                  Decimal?                      @db.Decimal(10, 7)
   workingHours               String
-  registrationStatus         RegistrationStatus       @default(DRAFT)
+  registrationStatus         RegistrationStatus            @default(DRAFT)
   reviewMessage              String?
-  approvedBy                 String?                   @db.Uuid
+  approvedBy                 String?                       @db.Uuid
   approvedAt                 DateTime?
-  isActive                   Boolean                   @default(true)
-  createdAt                  DateTime                  @default(now())
-  updatedAt                  DateTime                  @updatedAt
+  isActive                   Boolean                       @default(true)
+  createdAt                  DateTime                      @default(now())
+  updatedAt                  DateTime                      @updatedAt
   deletedAt                  DateTime?
   users                      User[]
   documents                  PharmacyDocument[]
   assignments                PrescriptionPharmacyRequest[]
   responses                  PharmacyResponse[]
-  selectedPrescriptions      Prescription[]            @relation("SelectedPharmacy")
+  selectedPrescriptions      Prescription[]                @relation("SelectedPharmacy")
   reviewHistory              PharmacyReviewHistory[]
   notifications              Notification[]
 
@@ -170,29 +170,29 @@ model PharmacyDocument {
 }
 
 model Prescription {
-  id                       String                         @id @default(uuid()) @db.Uuid
-  publicId                 String                         @unique
-  accessTokenHash          String                         @unique
-  mobile                   String
-  nationalId               String
-  prescriptionTrackingCode String
-  baseInsuranceId          String                         @db.Uuid
+  id                        String                        @id @default(uuid()) @db.Uuid
+  publicId                  String                        @unique
+  accessTokenHash           String                        @unique
+  mobile                    String
+  nationalId                String
+  prescriptionTrackingCode  String
+  baseInsuranceId           String                        @db.Uuid
   hasSupplementaryInsurance Boolean                       @default(false)
-  supplementaryInsuranceId String?                        @db.Uuid
-  supplementaryDescription String?
-  patientDescription       String?
-  status                   PrescriptionStatus             @default(PENDING)
-  selectedPharmacyId       String?                        @db.Uuid
-  expiresAt                DateTime
-  completedAt              DateTime?
-  cancelledAt              DateTime?
-  createdAt                DateTime                       @default(now())
-  updatedAt                DateTime                       @updatedAt
-  baseInsurance            InsuranceProvider              @relation("BaseInsurance", fields: [baseInsuranceId], references: [id], onDelete: Restrict)
-  supplementaryInsurance  InsuranceProvider?             @relation("SupplementaryInsurance", fields: [supplementaryInsuranceId], references: [id], onDelete: Restrict)
-  selectedPharmacy         Pharmacy?                      @relation("SelectedPharmacy", fields: [selectedPharmacyId], references: [id], onDelete: Restrict)
-  assignments              PrescriptionPharmacyRequest[]
-  responses                PharmacyResponse[]
+  supplementaryInsuranceId  String?                       @db.Uuid
+  supplementaryDescription  String?
+  patientDescription        String?
+  status                    PrescriptionStatus            @default(PENDING)
+  selectedPharmacyId        String?                       @db.Uuid
+  expiresAt                 DateTime
+  completedAt               DateTime?
+  cancelledAt               DateTime?
+  createdAt                 DateTime                      @default(now())
+  updatedAt                 DateTime                      @updatedAt
+  baseInsurance             InsuranceProvider             @relation("BaseInsurance", fields: [baseInsuranceId], references: [id], onDelete: Restrict)
+  supplementaryInsurance    InsuranceProvider?            @relation("SupplementaryInsurance", fields: [supplementaryInsuranceId], references: [id], onDelete: Restrict)
+  selectedPharmacy          Pharmacy?                     @relation("SelectedPharmacy", fields: [selectedPharmacyId], references: [id], onDelete: Restrict)
+  assignments               PrescriptionPharmacyRequest[]
+  responses                 PharmacyResponse[]
 
   @@index([prescriptionTrackingCode])
   @@index([nationalId])
@@ -204,18 +204,18 @@ model Prescription {
 }
 
 model PrescriptionPharmacyRequest {
-  id             String                      @id @default(uuid()) @db.Uuid
-  prescriptionId String                      @db.Uuid
-  pharmacyId     String                      @db.Uuid
-  status         PrescriptionRequestStatus   @default(SENT)
-  sentAt         DateTime                    @default(now())
+  id             String                    @id @default(uuid()) @db.Uuid
+  prescriptionId String                    @db.Uuid
+  pharmacyId     String                    @db.Uuid
+  status         PrescriptionRequestStatus @default(SENT)
+  sentAt         DateTime                  @default(now())
   seenAt         DateTime?
   respondedAt    DateTime?
   closedAt       DateTime?
-  createdAt      DateTime                    @default(now())
-  updatedAt      DateTime                    @updatedAt
-  prescription   Prescription                @relation(fields: [prescriptionId], references: [id], onDelete: Restrict)
-  pharmacy       Pharmacy                    @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  prescription   Prescription              @relation(fields: [prescriptionId], references: [id], onDelete: Restrict)
+  pharmacy       Pharmacy                  @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
 
   @@unique([prescriptionId, pharmacyId])
   @@index([pharmacyId, status, sentAt])
@@ -233,7 +233,7 @@ model PharmacyResponse {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   prescription       Prescription       @relation(fields: [prescriptionId], references: [id], onDelete: Restrict)
-  pharmacy           Pharmacy            @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
+  pharmacy           Pharmacy           @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
   user               User               @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@unique([prescriptionId, pharmacyId])
@@ -241,14 +241,14 @@ model PharmacyResponse {
 }
 
 model InsuranceProvider {
-  id                    String        @id @default(uuid()) @db.Uuid
-  name                  String
-  type                  InsuranceType
-  isActive              Boolean       @default(true)
-  sortOrder             Int           @default(0)
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
-  basePrescriptions     Prescription[] @relation("BaseInsurance")
+  id                         String         @id @default(uuid()) @db.Uuid
+  name                       String
+  type                       InsuranceType
+  isActive                   Boolean        @default(true)
+  sortOrder                  Int            @default(0)
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
+  basePrescriptions          Prescription[] @relation("BaseInsurance")
   supplementaryPrescriptions Prescription[] @relation("SupplementaryInsurance")
 
   @@unique([name, type])
@@ -256,17 +256,17 @@ model InsuranceProvider {
 }
 
 model AuditLog {
-  id          String   @id @default(uuid()) @db.Uuid
-  actorUserId String?  @db.Uuid
-  action      String
-  entityType  String
-  entityId    String?  @db.Uuid
-  requestId   String
-  ipAddress   String
-  userAgent   String
+  id           String   @id @default(uuid()) @db.Uuid
+  actorUserId  String?  @db.Uuid
+  action       String
+  entityType   String
+  entityId     String?  @db.Uuid
+  requestId    String
+  ipAddress    String
+  userAgent    String
   metadataJson Json
-  createdAt   DateTime @default(now())
-  actor       User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  actor        User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([action])
@@ -276,46 +276,46 @@ model AuditLog {
 }
 
 model RefreshSession {
-  id               String   @id @default(uuid()) @db.Uuid
-  userId           String   @db.Uuid
-  refreshTokenHash String   @unique
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  refreshTokenHash String    @unique
   deviceId         String?
   platform         String
   expiresAt        DateTime
   revokedAt        DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, revokedAt, expiresAt])
 }
 
 model Notification {
-  id          String           @id @default(uuid()) @db.Uuid
-  userId      String?          @db.Uuid
-  pharmacyId  String?          @db.Uuid
-  type        NotificationType
-  entityId    String?          @db.Uuid
-  title       String
-  body        String
-  readAt      DateTime?
-  createdAt   DateTime         @default(now())
-  user        User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  pharmacy    Pharmacy?        @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String?          @db.Uuid
+  pharmacyId String?          @db.Uuid
+  type       NotificationType
+  entityId   String?          @db.Uuid
+  title      String
+  body       String
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+  user       User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pharmacy   Pharmacy?        @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
 
   @@index([pharmacyId, readAt, createdAt])
   @@index([userId, readAt, createdAt])
 }
 
 model PharmacyReviewHistory {
-  id         String       @id @default(uuid()) @db.Uuid
-  pharmacyId String       @db.Uuid
-  action     ReviewAction
-  message    String?
-  adminUserId String      @db.Uuid
-  createdAt  DateTime     @default(now())
-  pharmacy   Pharmacy     @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
-  admin      User         @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
+  id          String       @id @default(uuid()) @db.Uuid
+  pharmacyId  String       @db.Uuid
+  action      ReviewAction
+  message     String?
+  adminUserId String       @db.Uuid
+  createdAt   DateTime     @default(now())
+  pharmacy    Pharmacy     @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
+  admin       User         @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
 
   @@index([pharmacyId, createdAt])
 }

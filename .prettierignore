@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+apps/web/android/
+apps/web/ios/
+playwright-report/
+test-results/
+*.tsbuildinfo

@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma} from '@prisma/client';
 import { type UserRole } from '@prisma/client';
-import { ConfigService } from '@nestjs/config';
 import argon2 from 'argon2';
-import type { AppEnvironment } from '@pharmacy-mvp/config';
 import { normalizeMobile } from '@pharmacy-mvp/validation';
 import { AuditService } from '../common/audit.service';
 import { AppError } from '../common/errors';
@@ -19,7 +17,6 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly pharmacy: PharmacyService,
     private readonly prescriptions: PrescriptionService,
-    private readonly config: ConfigService<AppEnvironment, true>,
     private readonly audit: AuditService,
   ) {}
 
@@ -118,6 +115,11 @@ export class AdminService {
   async createUser(actor: { id: string; role: UserRole }, body: CreateAdminUserDto, request: RequestWithContext): Promise<{ id: string }> {
     if (body.role === 'SUPER_ADMIN' && actor.role !== 'SUPER_ADMIN') throw new AppError('FORBIDDEN', 'ساخت SUPER_ADMIN مجاز نیست.', 403);
     if (['PHARMACY_ADMIN', 'PHARMACY_USER'].includes(body.role) && !body.pharmacyId) throw new AppError('VALIDATION_ERROR', 'داروخانه کاربر را مشخص کنید.', 422);
+    if (['ADMIN', 'SUPER_ADMIN'].includes(body.role) && body.pharmacyId) throw new AppError('VALIDATION_ERROR', 'کاربر مدیریتی نباید به داروخانه متصل باشد.', 422);
+    if (body.pharmacyId) {
+      const pharmacy = await this.prisma.pharmacy.findFirst({ where: { id: body.pharmacyId, deletedAt: null }, select: { id: true } });
+      if (!pharmacy) throw new AppError('NOT_FOUND', 'داروخانه پیدا نشد.', 404);
+    }
     const passwordHash = await argon2.hash(body.password, { type: argon2.argon2id });
     const user = await this.prisma.user.create({ data: { firstName: body.firstName.trim(), lastName: body.lastName.trim(), username: body.username.trim().toLowerCase(), mobile: normalizeMobile(body.mobile), passwordHash, role: body.role, pharmacyId: body.pharmacyId ?? null } });
     await this.audit.record({ actorUserId: actor.id, action: 'CREATE_USER', entityType: 'User', entityId: user.id, requestId: request.requestId, ipAddress: request.ip ?? 'unknown', userAgent: request.get('user-agent') ?? '', metadata: { role: body.role } });
@@ -125,15 +127,26 @@ export class AdminService {
   }
 
   async updateUser(actor: { id: string; role: UserRole }, id: string, body: UpdateUserDto, request: RequestWithContext): Promise<{ updated: true }> {
-    if (body.role === 'SUPER_ADMIN' && actor.role !== 'SUPER_ADMIN') throw new AppError('FORBIDDEN', 'تغییر نقش به SUPER_ADMIN مجاز نیست.', 403);
+    const target = await this.prisma.user.findFirst({ where: { id, deletedAt: null }, select: { id: true, role: true } });
+    if (!target) throw new AppError('NOT_FOUND', 'کاربر پیدا نشد.', 404);
+    if (actor.role !== 'SUPER_ADMIN' && (target.role === 'SUPER_ADMIN' || body.role === 'SUPER_ADMIN')) throw new AppError('FORBIDDEN', 'مدیریت SUPER_ADMIN فقط برای SUPER_ADMIN مجاز است.', 403);
+    if (target.id === actor.id && body.isActive === false) throw new AppError('CONFLICT', 'غیرفعال کردن کاربر جاری مجاز نیست.', 409);
+    if (body.role === 'ADMIN' || body.role === 'SUPER_ADMIN') {
+      const linked = await this.prisma.user.findUnique({ where: { id }, select: { pharmacyId: true } });
+      if (linked?.pharmacyId) throw new AppError('VALIDATION_ERROR', 'کاربر داروخانه را نمی‌توان مدیر سامانه کرد.', 422);
+    }
     await this.prisma.user.update({ where: { id }, data: { ...(body.firstName !== undefined ? { firstName: body.firstName.trim() } : {}), ...(body.lastName !== undefined ? { lastName: body.lastName.trim() } : {}), ...(body.mobile !== undefined ? { mobile: normalizeMobile(body.mobile) } : {}), ...(body.isActive !== undefined ? { isActive: body.isActive } : {}), ...(body.role !== undefined ? { role: body.role } : {}) } });
     await this.audit.record({ actorUserId: actor.id, action: 'UPDATE_USER', entityType: 'User', entityId: id, requestId: request.requestId, ipAddress: request.ip ?? 'unknown', userAgent: request.get('user-agent') ?? '', metadata: { fields: Object.keys(body) } });
     return { updated: true };
   }
 
-  async disableUser(actorId: string, id: string, request: RequestWithContext): Promise<{ disabled: true }> {
+  async disableUser(actor: { id: string; role: UserRole }, id: string, request: RequestWithContext): Promise<{ disabled: true }> {
+    const target = await this.prisma.user.findFirst({ where: { id, deletedAt: null }, select: { id: true, role: true } });
+    if (!target) throw new AppError('NOT_FOUND', 'کاربر پیدا نشد.', 404);
+    if (target.id === actor.id) throw new AppError('CONFLICT', 'غیرفعال کردن کاربر جاری مجاز نیست.', 409);
+    if (target.role === 'SUPER_ADMIN' && actor.role !== 'SUPER_ADMIN') throw new AppError('FORBIDDEN', 'غیرفعال کردن SUPER_ADMIN فقط برای SUPER_ADMIN مجاز است.', 403);
     await this.prisma.$transaction([this.prisma.user.update({ where: { id }, data: { isActive: false, deletedAt: new Date() } }), this.prisma.refreshSession.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } })]);
-    await this.audit.record({ actorUserId: actorId, action: 'DISABLE_USER', entityType: 'User', entityId: id, requestId: request.requestId, ipAddress: request.ip ?? 'unknown', userAgent: request.get('user-agent') ?? '', metadata: {} });
+    await this.audit.record({ actorUserId: actor.id, action: 'DISABLE_USER', entityType: 'User', entityId: id, requestId: request.requestId, ipAddress: request.ip ?? 'unknown', userAgent: request.get('user-agent') ?? '', metadata: {} });
     return { disabled: true };
   }
 

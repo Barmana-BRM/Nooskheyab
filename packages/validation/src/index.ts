@@ -114,7 +114,7 @@ export const pharmacyRegistrationSchema = z.object({
   province: z.string().trim().min(2).max(80),
   city: z.string().trim().min(2).max(80),
   address: z.string().trim().min(5).max(500),
-  postalCode: z.string().trim().regex(/^\d{10}$/, 'کد پستی باید ۱۰ رقم باشد.'),
+  postalCode: z.string().transform((value) => normalizeDigits(value).trim()).pipe(z.string().regex(/^\d{10}$/, 'کد پستی باید ۱۰ رقم باشد.')),
   workingHours: z.string().trim().min(2).max(500),
 });
 

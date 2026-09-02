@@ -1,4 +1,4 @@
-import { IsBoolean, IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsIn, IsISO8601, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 
 export class AdminDecisionDto {
   @IsOptional()
@@ -43,7 +43,7 @@ export class CreateAdminPharmacyDto {
   @IsOptional() @IsString() @MaxLength(30) technicalManagerIdentifier?: string;
   @IsOptional() @IsString() @MaxLength(50) pharmacyIdentifier?: string;
   @IsString() @MinLength(2) @MaxLength(80) licenseNumber!: string;
-  @IsString() licenseExpirationDate!: string;
+  @IsISO8601() licenseExpirationDate!: string;
   @IsString() mobile!: string;
   @IsString() @MaxLength(30) phone!: string;
   @IsString() @MinLength(2) @MaxLength(80) province!: string;

@@ -17,7 +17,7 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService<AppEnvironment, true>);
   const logger = app.get(StructuredLogger);
   app.useLogger(logger);
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', { exclude: ['health'] });
   app.use(cookieParser());
   app.use(json({ limit: '1mb' }));
   app.use(helmet({ contentSecurityPolicy: config.get('NODE_ENV') === 'production' }));

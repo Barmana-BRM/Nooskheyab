@@ -15,6 +15,9 @@ export default defineConfig({
       '@pharmacy-mvp/types': fileURLToPath(
         new URL('../../packages/types/src/index.ts', import.meta.url),
       ),
+      '@pharmacy-mvp/ui': fileURLToPath(
+        new URL('../../packages/ui/src/index.tsx', import.meta.url),
+      ),
     },
   },
   server: { port: 5173, host: '0.0.0.0' },

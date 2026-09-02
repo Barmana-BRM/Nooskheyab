@@ -16,7 +16,8 @@
       "@pharmacy-mvp/types": ["packages/types/dist/index.d.ts"],
       "@pharmacy-mvp/validation": ["packages/validation/dist/index.d.ts"],
       "@pharmacy-mvp/config": ["packages/config/dist/index.d.ts"],
-      "@pharmacy-mvp/api-client": ["packages/api-client/dist/index.d.ts"]
+      "@pharmacy-mvp/api-client": ["packages/api-client/dist/index.d.ts"],
+      "@pharmacy-mvp/ui": ["packages/ui/dist/index.d.ts"]
     },
     "skipLibCheck": true,
     "declaration": true,

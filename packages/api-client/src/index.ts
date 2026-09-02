@@ -57,7 +57,12 @@ export class ApiClient {
       const refreshed = await this.refresh();
       if (refreshed) return this.request<T>(path, init, false);
     }
-    const payload = (await response.json()) as ApiSuccess<T> | ApiError;
+    let payload: ApiSuccess<T> | ApiError;
+    try {
+      payload = (await response.json()) as ApiSuccess<T> | ApiError;
+    } catch {
+      throw new ApiClientError(response.status, { code: 'HTTP_ERROR', message: 'خطا در ارتباط با سامانه.' });
+    }
     if (!response.ok || !payload.success) {
       if (!payload.success) throw new ApiClientError(response.status, payload.error);
       throw new ApiClientError(response.status, {

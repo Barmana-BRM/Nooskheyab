@@ -46,8 +46,17 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof PrismaClientKnownRequestError && exception.code === 'P2002') {
       status = HttpStatus.CONFLICT;
       body = { code: 'DUPLICATE_RESOURCE', message: 'رکورد تکراری است.' };
+    } else if (this.isMulterFileSizeError(exception)) {
+      status = HttpStatus.PAYLOAD_TOO_LARGE;
+      body = { code: 'FILE_TOO_LARGE', message: 'حجم فایل بیش از حد مجاز است.' };
     }
 
     response.status(status).json({ success: false, error: body, requestId });
+  }
+
+  private isMulterFileSizeError(exception: unknown): boolean {
+    if (!exception || typeof exception !== 'object') return false;
+    const candidate = exception as { name?: unknown; code?: unknown };
+    return candidate.name === 'MulterError' && candidate.code === 'LIMIT_FILE_SIZE';
   }
 }

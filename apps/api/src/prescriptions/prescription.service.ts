@@ -20,7 +20,7 @@ const hashAccessToken = (token: string): string => {
   return hash;
 };
 
-interface PublicPrescriptionData {
+export interface PublicPrescriptionData {
   publicId: string;
   accessToken: string;
   status: PrescriptionStatus;

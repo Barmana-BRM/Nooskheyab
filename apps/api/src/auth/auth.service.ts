@@ -1,16 +1,16 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
-import type { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Response } from 'express';
 import type { User, UserRole } from '@prisma/client';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
-import type { AuditService } from '../common/audit.service';
+import { AuditService } from '../common/audit.service';
 import { AppError } from '../common/errors';
 import type { RequestWithContext } from '../common/request-context';
-import type { PrismaService } from '../common/prisma.service';
-import type { RedisService } from '../common/redis.service';
+import { PrismaService } from '../common/prisma.service';
+import { RedisService } from '../common/redis.service';
 import { REFRESH_COOKIE_NAME } from '../common/constants';
 
 interface JwtPayload {

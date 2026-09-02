@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Headers, Post, Req, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
-import type { AuthService } from './auth.service';
-import type { LoginDto, RefreshDto } from './auth.dto';
+import { AuthService } from './auth.service';
+import { LoginDto, RefreshDto } from './auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from '../common/auth.decorators';
 import type { AuthenticatedUser, RequestWithContext } from '../common/request-context';

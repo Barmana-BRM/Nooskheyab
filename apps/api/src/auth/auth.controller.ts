@@ -14,21 +14,29 @@ export class AuthController {
   async login(@Body() body: LoginDto, @Req() request: RequestWithContext, @Res({ passthrough: true }) response: Response, @Headers('x-client-platform') clientPlatform?: string) {
     const platform = body.platform ?? (clientPlatform === 'native' ? 'native' : 'browser');
     const tokens = await this.auth.login(body.username, body.password, request, body.deviceId, platform);
+    if (platform === 'native') return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
     this.auth.setRefreshCookie(response, tokens.refreshToken);
-    return { accessToken: tokens.accessToken, ...(platform === 'native' ? { refreshToken: tokens.refreshToken } : {}) };
+    return { accessToken: tokens.accessToken, ...this.auth.issueCsrf(response) };
+  }
+
+  @Get('csrf')
+  csrf(@Res({ passthrough: true }) response: Response) {
+    return this.auth.issueCsrf(response);
   }
 
   @Post('refresh')
   async refresh(@Body() body: RefreshDto, @Req() request: RequestWithContext, @Res({ passthrough: true }) response: Response) {
     const cookieToken = request.cookies?.pharmacy_refresh as string | undefined;
+    if (!body.refreshToken) this.auth.assertCsrf(request);
     const tokens = await this.auth.refresh(body.refreshToken ?? cookieToken);
-    this.auth.setRefreshCookie(response, tokens.refreshToken);
+    if (!body.refreshToken) this.auth.setRefreshCookie(response, tokens.refreshToken);
     return { accessToken: tokens.accessToken, ...(body.refreshToken ? { refreshToken: tokens.refreshToken } : {}) };
   }
 
   @Post('logout')
   async logout(@Body() body: RefreshDto, @Req() request: RequestWithContext, @Res({ passthrough: true }) response: Response) {
     const cookieToken = request.cookies?.pharmacy_refresh as string | undefined;
+    if (!body.refreshToken) this.auth.assertCsrf(request);
     const result = await this.auth.logout(body.refreshToken ?? cookieToken, request);
     this.auth.clearRefreshCookie(response);
     return result;

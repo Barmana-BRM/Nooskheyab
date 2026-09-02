@@ -6,10 +6,10 @@ import type { AppEnvironment } from '@pharmacy-mvp/config';
 export class StructuredLogger implements LoggerService {
   private context = 'application';
 
-  private readonly environment: AppEnvironment;
+  private readonly config: ConfigService<AppEnvironment, true>;
 
   constructor(config: ConfigService<AppEnvironment, true>) {
-    this.environment = config.getAll();
+    this.config = config;
   }
 
   setContext(context: string): void {
@@ -29,13 +29,13 @@ export class StructuredLogger implements LoggerService {
   }
 
   debug(message: unknown, context?: string): void {
-    if (this.environment.LOG_LEVEL === 'debug' || this.environment.LOG_LEVEL === 'trace') {
+    if (this.config.get('LOG_LEVEL') === 'debug' || this.config.get('LOG_LEVEL') === 'trace') {
       this.write('debug', message, context);
     }
   }
 
   verbose(message: unknown, context?: string): void {
-    if (this.environment.LOG_LEVEL === 'trace') this.write('trace', message, context);
+    if (this.config.get('LOG_LEVEL') === 'trace') this.write('trace', message, context);
   }
 
   private write(level: string, message: unknown, context?: string, trace?: string): void {
@@ -43,11 +43,11 @@ export class StructuredLogger implements LoggerService {
       level,
       timestamp: new Date().toISOString(),
       service: 'pharmacy-prescription-api',
-      environment: this.environment.APP_ENV,
+      environment: this.config.get('APP_ENV'),
       context: context ?? this.context,
       message: typeof message === 'string' ? message : 'structured event',
     };
-    if (trace && this.environment.NODE_ENV !== 'production') entry.trace = trace;
+    if (trace && this.config.get('NODE_ENV') !== 'production') entry.trace = trace;
     process.stdout.write(`${JSON.stringify(entry)}\n`);
   }
 }

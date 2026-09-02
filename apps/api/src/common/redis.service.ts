@@ -9,8 +9,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   readonly client: Redis;
 
   constructor(config: ConfigService<AppEnvironment, true>) {
-    const environment = config.getAll();
-    this.client = new Redis(environment.REDIS_URL, {
+    this.client = new Redis(config.get('REDIS_URL'), {
       lazyConnect: true,
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,

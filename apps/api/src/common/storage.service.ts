@@ -17,17 +17,19 @@ export interface SafeUpload {
 @Injectable()
 export class StorageService {
   private readonly client: S3Client;
-  private readonly environment: AppEnvironment;
+  private readonly bucket: string;
+  private readonly signedUrlTtlSeconds: number;
 
   constructor(config: ConfigService<AppEnvironment, true>) {
-    this.environment = config.getAll();
+    this.bucket = config.get('S3_BUCKET');
+    this.signedUrlTtlSeconds = config.get('S3_SIGNED_URL_TTL_SECONDS');
     this.client = new S3Client({
-      region: this.environment.S3_REGION,
-      endpoint: this.environment.S3_ENDPOINT,
-      forcePathStyle: this.environment.S3_FORCE_PATH_STYLE,
+      region: config.get('S3_REGION'),
+      endpoint: config.get('S3_ENDPOINT'),
+      forcePathStyle: config.get('S3_FORCE_PATH_STYLE'),
       credentials: {
-        accessKeyId: this.environment.S3_ACCESS_KEY,
-        secretAccessKey: this.environment.S3_SECRET_KEY,
+        accessKeyId: config.get('S3_ACCESS_KEY'),
+        secretAccessKey: config.get('S3_SECRET_KEY'),
       },
     });
   }
@@ -39,7 +41,7 @@ export class StorageService {
   async upload(key: string, upload: SafeUpload): Promise<void> {
     await this.client.send(
       new PutObjectCommand({
-        Bucket: this.environment.S3_BUCKET,
+        Bucket: this.bucket,
         Key: key,
         Body: upload.stream,
         ContentType: upload.mimeType,
@@ -54,18 +56,18 @@ export class StorageService {
   }
 
   async delete(key: string): Promise<void> {
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.environment.S3_BUCKET, Key: key }));
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
 
   async createSignedReadUrl(key: string): Promise<string> {
     return getSignedUrl(
       this.client,
       new GetObjectCommand({
-        Bucket: this.environment.S3_BUCKET,
+        Bucket: this.bucket,
         Key: key,
         ResponseContentDisposition: 'attachment',
       }),
-      { expiresIn: this.environment.S3_SIGNED_URL_TTL_SECONDS },
+      { expiresIn: this.signedUrlTtlSeconds },
     );
   }
 

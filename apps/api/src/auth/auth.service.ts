@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import argon2 from 'argon2';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Response } from 'express';
 import type { User, UserRole } from '@prisma/client';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
@@ -11,7 +11,7 @@ import { AppError } from '../common/errors';
 import type { RequestWithContext } from '../common/request-context';
 import { PrismaService } from '../common/prisma.service';
 import { RedisService } from '../common/redis.service';
-import { REFRESH_COOKIE_NAME } from '../common/constants';
+import { CSRF_COOKIE_NAME, REFRESH_COOKIE_NAME } from '../common/constants';
 
 interface JwtPayload {
   sub: string;
@@ -38,6 +38,7 @@ const parseDurationMs = (value: string): number => {
 
 const hashToken = (value: string): string => createHash('sha256').update(value).digest('hex');
 const genericLoginError = (): UnauthorizedException => new UnauthorizedException('نام کاربری یا رمز عبور نادرست است.');
+const createCsrfToken = (): string => randomBytes(32).toString('base64url');
 
 @Injectable()
 export class AuthService {
@@ -195,6 +196,28 @@ export class AuthService {
       maxAge: parseDurationMs(this.config.get('JWT_REFRESH_EXPIRES_IN')),
       path: '/api/v1/auth',
     });
+  }
+
+  setCsrfCookie(response: Response, token: string): void {
+    response.cookie(CSRF_COOKIE_NAME, token, {
+      httpOnly: false,
+      sameSite: 'lax',
+      secure: this.config.get('NODE_ENV') === 'production',
+      maxAge: parseDurationMs(this.config.get('JWT_REFRESH_EXPIRES_IN')),
+      path: '/api/v1/auth',
+    });
+  }
+
+  issueCsrf(response: Response): { csrfToken: string } {
+    const token = createCsrfToken();
+    this.setCsrfCookie(response, token);
+    return { csrfToken: token };
+  }
+
+  assertCsrf(request: RequestWithContext): void {
+    const cookie = request.cookies?.[CSRF_COOKIE_NAME] as string | undefined;
+    const header = request.header('x-csrf-token');
+    if (!cookie || !header || cookie.length !== header.length || !timingSafeEqual(Buffer.from(cookie), Buffer.from(header))) throw new AppError('CSRF_INVALID', 'درخواست امنیتی معتبر نیست.', 403);
   }
 
   private async recordLoginFailure(user: (User & { pharmacy: unknown }) | null, request: RequestWithContext): Promise<void> {

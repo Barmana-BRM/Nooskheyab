@@ -188,7 +188,7 @@ export class PrescriptionService {
     const now = new Date();
     if (prescription.cancelledAt || prescription.completedAt || prescription.selectedPharmacyId) throw conflict('PRESCRIPTION_CLOSED', 'این درخواست دیگر قابل انتخاب نیست.');
     if (prescription.expiresAt <= now) throw new AppError('PRESCRIPTION_EXPIRED', 'مهلت این درخواست به پایان رسیده است.', 410);
-    const candidate = await this.prisma.pharmacy.findFirst({ where: { id: pharmacyId, registrationStatus: 'APPROVED', isActive: true, deletedAt: null }, select: { id: true } });
+    const candidate = await this.prisma.pharmacy.findFirst({ where: { id: pharmacyId, registrationStatus: 'APPROVED', isActive: true, deletedAt: null, licenseExpirationDate: { gt: now } }, select: { id: true } });
     if (!candidate) throw new AppError('PHARMACY_NOT_SELECTABLE', 'داروخانه انتخاب‌شده دیگر فعال نیست.', 409);
     const response = await this.prisma.pharmacyResponse.findUnique({ where: { prescriptionId_pharmacyId: { prescriptionId: prescription.id, pharmacyId } }, select: { availabilityStatus: true } });
     if (!response || (response.availabilityStatus !== 'FULL_AVAILABLE' && response.availabilityStatus !== 'PARTIAL_AVAILABLE')) throw new AppError('PHARMACY_NOT_SELECTABLE', 'این داروخانه پاسخ قابل انتخابی ثبت نکرده است.', 409);

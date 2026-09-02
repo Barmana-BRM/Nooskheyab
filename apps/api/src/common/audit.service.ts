@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { redactAuditMetadata } from './masking';
 
 export interface AuditContext {
-  actorUserId?: string;
+  actorUserId?: string | undefined;
   action: string;
   entityType: string;
-  entityId?: string;
+  entityId?: string | undefined;
   requestId: string;
   ipAddress: string;
   userAgent: string;
@@ -27,7 +28,7 @@ export class AuditService {
         requestId: context.requestId,
         ipAddress: context.ipAddress.slice(0, 80),
         userAgent: context.userAgent.slice(0, 300),
-        metadataJson: redactAuditMetadata(context.metadata ?? {}),
+        metadataJson: redactAuditMetadata(context.metadata ?? {}) as Prisma.InputJsonValue,
       },
     });
   }

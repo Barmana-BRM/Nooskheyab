@@ -6,7 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { Prisma } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import type { RequestWithContext } from './request-context';
 import { AppError } from './errors';
 
@@ -28,7 +28,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof AppError) {
       status = exception.getStatus();
-      body = { code: exception.code, message: exception.message, fields: exception.fields };
+      body = { code: exception.code, message: exception.message };
+      if (exception.fields) body.fields = exception.fields;
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       const payload = exception.getResponse();
@@ -41,7 +42,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         };
         if (messages) body.fields = { form: messages.join('، ') };
       }
-    } else if (exception instanceof Prisma.PrismaClientKnownRequestError && exception.code === 'P2002') {
+    } else if (exception instanceof PrismaClientKnownRequestError && exception.code === 'P2002') {
       status = HttpStatus.CONFLICT;
       body = { code: 'DUPLICATE_RESOURCE', message: 'رکورد تکراری است.' };
     }

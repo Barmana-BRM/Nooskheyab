@@ -30,7 +30,9 @@ const parseDurationMs = (value: string): number => {
   const match = /^(\d+)\s*(s|m|h|d)$/i.exec(value.trim());
   if (!match) throw new Error('Invalid duration configuration');
   const amount = Number(match[1]);
-  const multiplier = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }[match[2].toLowerCase() as 's' | 'm' | 'h' | 'd'];
+  const unit = match[2];
+  if (!unit) throw new Error('Invalid duration configuration');
+  const multiplier = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }[unit.toLowerCase() as 's' | 'm' | 'h' | 'd'];
   return amount * multiplier;
 };
 
@@ -90,7 +92,7 @@ export class AuthService {
         data: {
           userId: user.id,
           refreshTokenHash: hashToken(refreshToken),
-          deviceId,
+          deviceId: deviceId ?? null,
           platform,
           expiresAt,
         },

@@ -93,7 +93,7 @@ export class PrescriptionService {
           prescriptionTrackingCode: parsed.data.prescriptionTrackingCode,
           baseInsuranceId: parsed.data.baseInsuranceId,
           hasSupplementaryInsurance: parsed.data.hasSupplementaryInsurance,
-          supplementaryInsuranceId: parsed.data.hasSupplementaryInsurance ? parsed.data.supplementaryInsuranceId : null,
+          supplementaryInsuranceId: parsed.data.hasSupplementaryInsurance ? parsed.data.supplementaryInsuranceId ?? null : null,
           supplementaryDescription: parsed.data.hasSupplementaryInsurance ? parsed.data.supplementaryDescription || null : null,
           patientDescription: parsed.data.patientDescription || null,
           expiresAt,

@@ -57,8 +57,8 @@ export class PharmacyService {
     const pharmacy = await this.prisma.pharmacy.findFirst({
       where: { id: pharmacyId, deletedAt: null },
       include: {
-        documents: { orderBy: { createdAt: 'desc' }, select: { id: true, documentType: true, originalName: true, mimeType: true, fileSize: true, verificationStatus: true, rejectionReason: true, createdAt: true } },
-        reviewHistory: { orderBy: { createdAt: 'desc' }, take: 20, select: { action: true, message: true, createdAt: true } },
+        documents: true,
+        reviewHistory: { orderBy: { createdAt: 'desc' }, take: 20 },
       },
     });
     if (!pharmacy) throw new AppError('NOT_FOUND', 'اطلاعات داروخانه پیدا نشد.', 404);
@@ -147,7 +147,7 @@ export class PharmacyService {
 
   async adminRegistrations(status?: string): Promise<Array<Record<string, unknown>>> {
     const allowed = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'CHANGES_REQUESTED', 'SUSPENDED'];
-    const rows = await this.prisma.pharmacy.findMany({ where: { deletedAt: null, ...(status && allowed.includes(status) ? { registrationStatus: status as RegistrationStatus } : {}) }, orderBy: { createdAt: 'desc' }, take: 100, include: { documents: { select: { id: true, documentType: true, originalName: true, mimeType: true, fileSize: true, verificationStatus: true, rejectionReason: true, createdAt: true } } } });
+    const rows = await this.prisma.pharmacy.findMany({ where: { deletedAt: null, ...(status && allowed.includes(status) ? { registrationStatus: status as RegistrationStatus } : {}) }, orderBy: { createdAt: 'desc' }, take: 100, include: { documents: true, reviewHistory: true } });
     return rows.map((row) => this.mapRegistration(row));
   }
 

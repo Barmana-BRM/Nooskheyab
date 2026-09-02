@@ -33,7 +33,7 @@ export class AdminController {
   @Post('users') createUser(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateAdminUserDto, @Req() request: RequestWithContext) { return this.admin.createUser(user, body, request); }
   @Put('users/:id') updateUser(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: UpdateUserDto, @Req() request: RequestWithContext) { return this.admin.updateUser(user, id, body, request); }
   @Post('users/:id/disable') disableUser(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Req() request: RequestWithContext) { return this.admin.disableUser(user, id, request); }
-  @Post('users/:id/reset-password') resetPassword(@Param('id') id: string, @Body('password') password: string, @CurrentUser() user: AuthenticatedUser, @Req() request: RequestWithContext) { return this.admin.resetPassword(user.id, id, password, request); }
+  @Post('users/:id/reset-password') resetPassword(@Param('id') id: string, @Body('password') password: string, @CurrentUser() user: AuthenticatedUser, @Req() request: RequestWithContext) { return this.admin.resetPassword(user, id, password, request); }
   @Get('insurance') insurance() { return this.admin.insurance(); }
   @Post('insurance') createInsurance(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateInsuranceDto, @Req() request: RequestWithContext) { return this.admin.createInsurance(user.id, body, request); }
   @Put('insurance/:id') updateInsurance(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: UpdateInsuranceDto, @Req() request: RequestWithContext) { return this.admin.updateInsurance(user.id, id, body, request); }

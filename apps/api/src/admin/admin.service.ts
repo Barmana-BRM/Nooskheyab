@@ -127,14 +127,12 @@ export class AdminService {
   }
 
   async updateUser(actor: { id: string; role: UserRole }, id: string, body: UpdateUserDto, request: RequestWithContext): Promise<{ updated: true }> {
-    const target = await this.prisma.user.findFirst({ where: { id, deletedAt: null }, select: { id: true, role: true } });
+    const target = await this.prisma.user.findFirst({ where: { id, deletedAt: null }, select: { id: true, role: true, pharmacyId: true } });
     if (!target) throw new AppError('NOT_FOUND', 'کاربر پیدا نشد.', 404);
     if (actor.role !== 'SUPER_ADMIN' && (target.role === 'SUPER_ADMIN' || body.role === 'SUPER_ADMIN')) throw new AppError('FORBIDDEN', 'مدیریت SUPER_ADMIN فقط برای SUPER_ADMIN مجاز است.', 403);
     if (target.id === actor.id && body.isActive === false) throw new AppError('CONFLICT', 'غیرفعال کردن کاربر جاری مجاز نیست.', 409);
-    if (body.role === 'ADMIN' || body.role === 'SUPER_ADMIN') {
-      const linked = await this.prisma.user.findUnique({ where: { id }, select: { pharmacyId: true } });
-      if (linked?.pharmacyId) throw new AppError('VALIDATION_ERROR', 'کاربر داروخانه را نمی‌توان مدیر سامانه کرد.', 422);
-    }
+    if ((body.role === 'ADMIN' || body.role === 'SUPER_ADMIN') && target.pharmacyId) throw new AppError('VALIDATION_ERROR', 'کاربر داروخانه را نمی‌توان مدیر سامانه کرد.', 422);
+    if ((body.role === 'PHARMACY_ADMIN' || body.role === 'PHARMACY_USER') && !target.pharmacyId) throw new AppError('VALIDATION_ERROR', 'برای کاربر داروخانه باید داروخانه تعیین شود.', 422);
     await this.prisma.user.update({ where: { id }, data: { ...(body.firstName !== undefined ? { firstName: body.firstName.trim() } : {}), ...(body.lastName !== undefined ? { lastName: body.lastName.trim() } : {}), ...(body.mobile !== undefined ? { mobile: normalizeMobile(body.mobile) } : {}), ...(body.isActive !== undefined ? { isActive: body.isActive } : {}), ...(body.role !== undefined ? { role: body.role } : {}) } });
     await this.audit.record({ actorUserId: actor.id, action: 'UPDATE_USER', entityType: 'User', entityId: id, requestId: request.requestId, ipAddress: request.ip ?? 'unknown', userAgent: request.get('user-agent') ?? '', metadata: { fields: Object.keys(body) } });
     return { updated: true };
@@ -150,11 +148,14 @@ export class AdminService {
     return { disabled: true };
   }
 
-  async resetPassword(actorId: string, id: string, password: string, request: RequestWithContext): Promise<{ reset: true }> {
+  async resetPassword(actor: { id: string; role: UserRole }, id: string, password: string, request: RequestWithContext): Promise<{ reset: true }> {
     if (password.length < 10) throw new AppError('VALIDATION_ERROR', 'رمز عبور حداقل ۱۰ کاراکتر باشد.', 422);
+    const target = await this.prisma.user.findFirst({ where: { id, deletedAt: null }, select: { role: true } });
+    if (!target) throw new AppError('NOT_FOUND', 'کاربر پیدا نشد.', 404);
+    if (target.role === 'SUPER_ADMIN' && actor.role !== 'SUPER_ADMIN') throw new AppError('FORBIDDEN', 'تغییر رمز SUPER_ADMIN فقط برای SUPER_ADMIN مجاز است.', 403);
     const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
     await this.prisma.$transaction([this.prisma.user.update({ where: { id }, data: { passwordHash, failedLoginCount: 0, lockedUntil: null } }), this.prisma.refreshSession.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } })]);
-    await this.audit.record({ actorUserId: actorId, action: 'UPDATE_USER', entityType: 'User', entityId: id, requestId: request.requestId, ipAddress: request.ip ?? 'unknown', userAgent: request.get('user-agent') ?? '', metadata: { passwordReset: true } });
+    await this.audit.record({ actorUserId: actor.id, action: 'UPDATE_USER', entityType: 'User', entityId: id, requestId: request.requestId, ipAddress: request.ip ?? 'unknown', userAgent: request.get('user-agent') ?? '', metadata: { passwordReset: true } });
     return { reset: true };
   }
 

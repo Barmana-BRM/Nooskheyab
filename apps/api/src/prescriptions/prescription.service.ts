@@ -136,8 +136,8 @@ export class PrescriptionService {
     return result;
   }
 
-  async getPublic(publicId: string, rawToken: string | undefined): Promise<Record<string, unknown>> {
-    const publicAllowed = await this.redis.consumeRateLimit(`pharmacy-mvp:prescription-status:${requestSafeIp(publicId, rawToken)}`, 60, 60);
+  async getPublic(publicId: string, rawToken: string | undefined, request: RequestWithContext): Promise<Record<string, unknown>> {
+    const publicAllowed = await this.redis.consumeRateLimit(`pharmacy-mvp:prescription-status:${request.ip ?? 'unknown'}:${publicId}`, 60, 60);
     if (!publicAllowed) throw new AppError('RATE_LIMITED', 'تعداد درخواست‌ها بیش از حد مجاز است.', 429);
     const prescription = await this.findByPublicToken(publicId, rawToken);
     await this.expireIfNeeded(prescription.id, prescription.expiresAt, prescription.selectedPharmacyId, prescription.cancelledAt, prescription.completedAt);

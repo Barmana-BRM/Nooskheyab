@@ -14,8 +14,8 @@ export class PrescriptionController {
   }
 
   @Get(':publicId')
-  get(@Param('publicId') publicId: string, @Headers(PUBLIC_TOKEN_HEADER) token?: string) {
-    return this.prescriptions.getPublic(publicId, token);
+  get(@Param('publicId') publicId: string, @Headers(PUBLIC_TOKEN_HEADER) token: string | undefined, @Req() request: RequestWithContext) {
+    return this.prescriptions.getPublic(publicId, token, request);
   }
 
   @Post(':publicId/select-pharmacy')

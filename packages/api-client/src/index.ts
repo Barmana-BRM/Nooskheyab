@@ -19,6 +19,8 @@ export interface AuthStorageAdapter {
   setAccessToken(token: string | null): void;
   getRefreshToken(): Promise<string | null>;
   setRefreshToken(token: string | null): Promise<void>;
+  getCsrfToken?(): string | null;
+  setCsrfToken?(token: string | null): void;
 }
 
 export interface ApiClientOptions {
@@ -77,9 +79,21 @@ export class ApiClient {
 
   private async doRefresh(): Promise<boolean> {
     const refreshToken = await this.authStorage.getRefreshToken();
+    let csrfToken = this.authStorage.getCsrfToken?.() ?? null;
+    if (!refreshToken && !csrfToken) {
+      const csrfResponse = await this.fetcher(`${this.baseUrl}/auth/csrf`, { method: 'GET', credentials: 'include' });
+      if (csrfResponse.ok) {
+        const csrfPayload = (await csrfResponse.json()) as ApiSuccess<{ csrfToken: string }>;
+        if (csrfPayload.success) {
+          csrfToken = csrfPayload.data.csrfToken;
+          this.authStorage.setCsrfToken?.(csrfToken);
+        }
+      }
+    }
     const refreshInit: RequestInit = { method: 'POST', credentials: 'include' };
+    if (csrfToken) refreshInit.headers = { 'X-CSRF-Token': csrfToken };
     if (refreshToken) {
-      refreshInit.headers = { 'Content-Type': 'application/json' };
+      refreshInit.headers = { ...(refreshInit.headers ?? {}), 'Content-Type': 'application/json' };
       refreshInit.body = JSON.stringify({ refreshToken });
     }
     const response = await this.fetcher(`${this.baseUrl}/auth/refresh`, refreshInit);

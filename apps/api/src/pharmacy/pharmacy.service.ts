@@ -54,7 +54,13 @@ export class PharmacyService {
   }
 
   async status(pharmacyId: string): Promise<Record<string, unknown>> {
-    const pharmacy = await this.prisma.pharmacy.findFirst({ where: { id: pharmacyId, deletedAt: null }, include: { documents: { orderBy: { createdAt: 'desc' }, select: { id: true, documentType: true, originalName: true, mimeType: true, fileSize: true, verificationStatus: true, rejectionReason: true, createdAt: true } }, reviewHistory: { orderBy: { createdAt: 'desc' }, take: 20, select: { action: true, message: true, createdAt: true } } });
+    const pharmacy = await this.prisma.pharmacy.findFirst({
+      where: { id: pharmacyId, deletedAt: null },
+      include: {
+        documents: { orderBy: { createdAt: 'desc' }, select: { id: true, documentType: true, originalName: true, mimeType: true, fileSize: true, verificationStatus: true, rejectionReason: true, createdAt: true } },
+        reviewHistory: { orderBy: { createdAt: 'desc' }, take: 20, select: { action: true, message: true, createdAt: true } },
+      },
+    });
     if (!pharmacy) throw new AppError('NOT_FOUND', 'اطلاعات داروخانه پیدا نشد.', 404);
     return this.mapRegistration(pharmacy);
   }

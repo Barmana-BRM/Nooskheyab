@@ -10,8 +10,10 @@ export class ExpirationService {
   @Cron(CronExpression.EVERY_MINUTE)
   async expireDuePrescriptions(): Promise<void> {
     const lockKey = 'pharmacy-mvp:lock:prescription-expiration';
-    const locked = await this.redis.setIfNotExists(lockKey, new Date().toISOString(), 55);
-    if (!locked) return;
+    if (this.redis.client.status === 'ready') {
+      const locked = await this.redis.setIfNotExists(lockKey, new Date().toISOString(), 55);
+      if (!locked) return;
+    }
     const now = new Date();
     const due = await this.prisma.prescription.findMany({
       where: { expiresAt: { lte: now }, cancelledAt: null, completedAt: null, selectedPharmacyId: null, status: { not: 'EXPIRED' } },

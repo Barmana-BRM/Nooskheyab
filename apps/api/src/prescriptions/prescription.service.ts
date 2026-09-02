@@ -280,10 +280,13 @@ export class PrescriptionService {
     }
     if (row.prescription.cancelledAt || row.prescription.completedAt || row.prescription.selectedPharmacyId || ['CLOSED', 'EXPIRED'].includes(row.status)) throw conflict('PRESCRIPTION_CLOSED', 'این درخواست دیگر پاسخ جدید نمی‌پذیرد.');
     const existing = await this.prisma.pharmacyResponse.findUnique({ where: { prescriptionId_pharmacyId: { prescriptionId: row.prescriptionId, pharmacyId } }, select: { id: true } });
-    await this.prisma.$transaction([
-      this.prisma.pharmacyResponse.upsert({ where: { prescriptionId_pharmacyId: { prescriptionId: row.prescriptionId, pharmacyId } }, create: { prescriptionId: row.prescriptionId, pharmacyId, userId, availabilityStatus: parsed.data.availabilityStatus, description: parsed.data.description || null, respondedAt: now }, update: { userId, availabilityStatus: parsed.data.availabilityStatus, description: parsed.data.description || null, respondedAt: now } }),
-      this.prisma.prescriptionPharmacyRequest.update({ where: { id: row.id }, data: { status: 'RESPONDED', respondedAt: now } }),
-    ]);
+    await this.prisma.$transaction(async (transaction) => {
+      const open = await transaction.prescription.updateMany({ where: { id: row.prescriptionId, selectedPharmacyId: null, cancelledAt: null, completedAt: null, expiresAt: { gt: now } }, data: { status: row.prescription.status } });
+      if (open.count !== 1) throw conflict('PRESCRIPTION_CLOSED', 'این درخواست دیگر پاسخ جدید نمی‌پذیرد.');
+      const assignment = await transaction.prescriptionPharmacyRequest.updateMany({ where: { id: row.id, pharmacyId, status: { notIn: ['CLOSED', 'EXPIRED', 'SELECTED'] } }, data: { status: 'RESPONDED', respondedAt: now } });
+      if (assignment.count !== 1) throw conflict('PRESCRIPTION_CLOSED', 'این درخواست دیگر پاسخ جدید نمی‌پذیرد.');
+      await transaction.pharmacyResponse.upsert({ where: { prescriptionId_pharmacyId: { prescriptionId: row.prescriptionId, pharmacyId } }, create: { prescriptionId: row.prescriptionId, pharmacyId, userId, availabilityStatus: parsed.data.availabilityStatus, description: parsed.data.description || null, respondedAt: now }, update: { userId, availabilityStatus: parsed.data.availabilityStatus, description: parsed.data.description || null, respondedAt: now } });
+    });
     await this.refreshAggregate(row.prescriptionId);
     await this.audit.record({ actorUserId: userId, action: existing ? 'UPDATE_RESPONSE' : 'RESPOND_PRESCRIPTION', entityType: 'Prescription', entityId: row.prescriptionId, requestId: request.requestId, ipAddress: request.ip ?? 'unknown', userAgent: request.get('user-agent') ?? '', metadata: { pharmacyId, availabilityStatus: parsed.data.availabilityStatus } });
     return { status: await this.getCurrentStatus(row.prescriptionId) };

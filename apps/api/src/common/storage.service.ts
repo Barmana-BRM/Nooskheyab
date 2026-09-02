@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { ConfigService } from '@nestjs/config';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
 
 export interface SafeUpload {
@@ -16,8 +17,10 @@ export interface SafeUpload {
 @Injectable()
 export class StorageService {
   private readonly client: S3Client;
+  private readonly environment: AppEnvironment;
 
-  constructor(private readonly environment: AppEnvironment) {
+  constructor(config: ConfigService<AppEnvironment, true>) {
+    this.environment = config.getAll();
     this.client = new S3Client({
       region: this.environment.S3_REGION,
       endpoint: this.environment.S3_ENDPOINT,

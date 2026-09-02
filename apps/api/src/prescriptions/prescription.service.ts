@@ -412,8 +412,10 @@ export class PrescriptionService {
   }> {
     const page = this.safePage(query.page);
     const limit = this.safeLimit(query.limit);
+    const dateRange = this.parseDateRange(query.dateFrom, query.dateTo);
     const where: Prisma.PrescriptionPharmacyRequestWhereInput = {
       pharmacyId,
+      ...(dateRange ? { sentAt: dateRange } : {}),
       ...(query.status &&
       ['SENT', 'VIEWED', 'RESPONDED', 'SELECTED', 'CLOSED', 'EXPIRED'].includes(query.status)
         ? { status: query.status as never }
@@ -658,8 +660,10 @@ export class PrescriptionService {
   }> {
     const page = this.safePage(query.page);
     const limit = this.safeLimit(query.limit);
+    const dateRange = this.parseDateRange(query.dateFrom, query.dateTo);
     const search = query.search?.trim();
     const where: Prisma.PrescriptionWhereInput = {
+      ...(dateRange ? { createdAt: dateRange } : {}),
       ...(query.status &&
       [
         'PENDING',

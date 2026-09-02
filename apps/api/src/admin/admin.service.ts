@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { type UserRole } from '@prisma/client';
 import argon2 from 'argon2';
-import { normalizeMobile } from '@pharmacy-mvp/validation';
+import { mobileSchema, normalizeDigits, normalizeMobile } from '@pharmacy-mvp/validation';
 import { AuditService } from '../common/audit.service';
 import { AppError } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
@@ -179,6 +179,13 @@ export class AdminService {
     body: CreateAdminPharmacyDto,
     request: RequestWithContext,
   ): Promise<{ id: string; status: 'DRAFT' }> {
+    const mobile = mobileSchema.safeParse(body.mobile);
+    const postalCode = normalizeDigits(body.postalCode).trim();
+    if (!mobile.success || !/^\d{10}$/.test(postalCode))
+      throw new AppError('VALIDATION_ERROR', 'اطلاعات تماس یا کد پستی معتبر نیست.', 422, {
+        mobile: mobile.success ? undefined : 'شماره موبایل معتبر نیست.',
+        postalCode: /^\d{10}$/.test(postalCode) ? undefined : 'کد پستی باید ۱۰ رقم باشد.',
+      });
     const pharmacy = await this.prisma.pharmacy.create({
       data: {
         name: body.name.trim(),
@@ -187,12 +194,12 @@ export class AdminService {
         pharmacyIdentifier: body.pharmacyIdentifier?.trim() || null,
         licenseNumber: body.licenseNumber.trim(),
         licenseExpirationDate: new Date(body.licenseExpirationDate),
-        mobile: normalizeMobile(body.mobile),
+        mobile: mobile.data,
         phone: body.phone.trim(),
         province: body.province.trim(),
         city: body.city.trim(),
         address: body.address.trim(),
-        postalCode: body.postalCode.trim(),
+        postalCode,
         workingHours: body.workingHours.trim(),
       },
     });
@@ -215,6 +222,13 @@ export class AdminService {
     body: CreateAdminPharmacyDto,
     request: RequestWithContext,
   ): Promise<{ updated: true }> {
+    const mobile = mobileSchema.safeParse(body.mobile);
+    const postalCode = normalizeDigits(body.postalCode).trim();
+    if (!mobile.success || !/^\d{10}$/.test(postalCode))
+      throw new AppError('VALIDATION_ERROR', 'اطلاعات تماس یا کد پستی معتبر نیست.', 422, {
+        mobile: mobile.success ? undefined : 'شماره موبایل معتبر نیست.',
+        postalCode: /^\d{10}$/.test(postalCode) ? undefined : 'کد پستی باید ۱۰ رقم باشد.',
+      });
     await this.prisma.pharmacy.update({
       where: { id },
       data: {
@@ -224,12 +238,12 @@ export class AdminService {
         pharmacyIdentifier: body.pharmacyIdentifier?.trim() || null,
         licenseNumber: body.licenseNumber.trim(),
         licenseExpirationDate: new Date(body.licenseExpirationDate),
-        mobile: normalizeMobile(body.mobile),
+        mobile: mobile.data,
         phone: body.phone.trim(),
         province: body.province.trim(),
         city: body.city.trim(),
         address: body.address.trim(),
-        postalCode: body.postalCode.trim(),
+        postalCode,
         workingHours: body.workingHours.trim(),
       },
     });
@@ -317,13 +331,15 @@ export class AdminService {
       });
       if (!pharmacy) throw new AppError('NOT_FOUND', 'داروخانه پیدا نشد.', 404);
     }
+    const mobile = mobileSchema.safeParse(body.mobile);
+    if (!mobile.success) throw new AppError('VALIDATION_ERROR', 'شماره موبایل معتبر نیست.', 422, { mobile: 'شماره موبایل معتبر نیست.' });
     const passwordHash = await argon2.hash(body.password, { type: argon2.argon2id });
     const user = await this.prisma.user.create({
       data: {
         firstName: body.firstName.trim(),
         lastName: body.lastName.trim(),
         username: body.username.trim().toLowerCase(),
-        mobile: normalizeMobile(body.mobile),
+        mobile: mobile.data,
         passwordHash,
         role: body.role,
         pharmacyId: body.pharmacyId ?? null,
@@ -364,12 +380,15 @@ export class AdminService {
       throw new AppError('VALIDATION_ERROR', 'کاربر داروخانه را نمی‌توان مدیر سامانه کرد.', 422);
     if ((body.role === 'PHARMACY_ADMIN' || body.role === 'PHARMACY_USER') && !target.pharmacyId)
       throw new AppError('VALIDATION_ERROR', 'برای کاربر داروخانه باید داروخانه تعیین شود.', 422);
+    const mobile = body.mobile === undefined ? undefined : mobileSchema.safeParse(body.mobile);
+    if (mobile && !mobile.success)
+      throw new AppError('VALIDATION_ERROR', 'شماره موبایل معتبر نیست.', 422, { mobile: 'شماره موبایل معتبر نیست.' });
     await this.prisma.user.update({
       where: { id },
       data: {
         ...(body.firstName !== undefined ? { firstName: body.firstName.trim() } : {}),
         ...(body.lastName !== undefined ? { lastName: body.lastName.trim() } : {}),
-        ...(body.mobile !== undefined ? { mobile: normalizeMobile(body.mobile) } : {}),
+        ...(mobile?.success ? { mobile: mobile.data } : {}),
         ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
         ...(body.role !== undefined ? { role: body.role } : {}),
       },

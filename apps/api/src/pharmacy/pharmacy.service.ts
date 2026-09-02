@@ -6,7 +6,7 @@ import argon2 from 'argon2';
 import { Readable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
-import { pharmacyRegistrationSchema, normalizeMobile } from '@pharmacy-mvp/validation';
+import { mobileSchema, normalizeDigits, normalizeMobile, pharmacyRegistrationSchema } from '@pharmacy-mvp/validation';
 import { AppError, conflict } from '../common/errors';
 import { AuditService } from '../common/audit.service';
 import { PrismaService } from '../common/prisma.service';
@@ -111,6 +111,14 @@ export class PharmacyService {
     if (!current) throw new AppError('NOT_FOUND', 'اطلاعات داروخانه پیدا نشد.', 404);
     if (current.registrationStatus === 'PENDING_APPROVAL')
       throw conflict('REGISTRATION_LOCKED', 'درخواست در حال بررسی است و فعلاً قابل ویرایش نیست.');
+    const normalizedMobile = body.mobile === undefined ? undefined : mobileSchema.safeParse(body.mobile);
+    if (normalizedMobile && !normalizedMobile.success)
+      throw new AppError('VALIDATION_ERROR', 'شماره موبایل معتبر نیست.', 422, { mobile: 'شماره موبایل معتبر نیست.' });
+    const normalizedPostalCode = body.postalCode === undefined ? undefined : normalizeDigits(body.postalCode).trim();
+    if (normalizedPostalCode !== undefined && !/^\d{10}$/.test(normalizedPostalCode))
+      throw new AppError('VALIDATION_ERROR', 'کد پستی معتبر نیست.', 422, { postalCode: 'کد پستی باید ۱۰ رقم باشد.' });
+    if (body.licenseExpirationDate !== undefined && Number.isNaN(new Date(body.licenseExpirationDate).getTime()))
+      throw new AppError('VALIDATION_ERROR', 'تاریخ اعتبار مجوز معتبر نیست.', 422, { licenseExpirationDate: 'تاریخ اعتبار مجوز معتبر نیست.' });
     const data: Prisma.PharmacyUpdateInput = {
       ...(body.pharmacyName !== undefined ? { name: body.pharmacyName.trim() } : {}),
       ...(body.technicalManager !== undefined
@@ -126,12 +134,12 @@ export class PharmacyService {
       ...(body.licenseExpirationDate !== undefined
         ? { licenseExpirationDate: new Date(body.licenseExpirationDate) }
         : {}),
-      ...(body.mobile !== undefined ? { mobile: normalizeMobile(body.mobile) } : {}),
+      ...(normalizedMobile?.success ? { mobile: normalizedMobile.data } : {}),
       ...(body.phone !== undefined ? { phone: body.phone.trim() } : {}),
       ...(body.province !== undefined ? { province: body.province.trim() } : {}),
       ...(body.city !== undefined ? { city: body.city.trim() } : {}),
       ...(body.address !== undefined ? { address: body.address.trim() } : {}),
-      ...(body.postalCode !== undefined ? { postalCode: body.postalCode.trim() } : {}),
+      ...(normalizedPostalCode !== undefined ? { postalCode: normalizedPostalCode } : {}),
       ...(body.workingHours !== undefined ? { workingHours: body.workingHours.trim() } : {}),
       ...(body.firstName !== undefined || body.lastName !== undefined
         ? {

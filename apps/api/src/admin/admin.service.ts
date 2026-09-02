@@ -11,7 +11,7 @@ import { PrismaService } from '../common/prisma.service';
 import type { RequestWithContext } from '../common/request-context';
 import { PharmacyService } from '../pharmacy/pharmacy.service';
 import { PrescriptionService } from '../prescriptions/prescription.service';
-import type { CreateAdminUserDto, CreateInsuranceDto, UpdateInsuranceDto, UpdateUserDto } from './admin.dto';
+import type { CreateAdminPharmacyDto, CreateAdminUserDto, CreateInsuranceDto, UpdateInsuranceDto, UpdateUserDto } from './admin.dto';
 
 @Injectable()
 export class AdminService {
@@ -80,6 +80,22 @@ export class AdminService {
   async pharmacies(): Promise<Array<Record<string, unknown>>> {
     const rows = await this.prisma.pharmacy.findMany({ where: { deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 100, select: { id: true, name: true, mobile: true, province: true, city: true, registrationStatus: true, isActive: true, licenseExpirationDate: true, createdAt: true, _count: { select: { users: true, assignments: true } } } });
     return rows.map((row) => ({ ...row, licenseExpirationDate: row.licenseExpirationDate.toISOString(), createdAt: row.createdAt.toISOString() }));
+  }
+
+  async pharmacyDetail(id: string): Promise<Record<string, unknown>> {
+    return this.pharmacy.status(id);
+  }
+
+  async createPharmacy(actorId: string, body: CreateAdminPharmacyDto, request: RequestWithContext): Promise<{ id: string; status: 'DRAFT' }> {
+    const pharmacy = await this.prisma.pharmacy.create({ data: { name: body.name.trim(), technicalManager: body.technicalManager.trim(), technicalManagerIdentifier: body.technicalManagerIdentifier?.trim() || null, pharmacyIdentifier: body.pharmacyIdentifier?.trim() || null, licenseNumber: body.licenseNumber.trim(), licenseExpirationDate: new Date(body.licenseExpirationDate), mobile: normalizeMobile(body.mobile), phone: body.phone.trim(), province: body.province.trim(), city: body.city.trim(), address: body.address.trim(), postalCode: body.postalCode.trim(), workingHours: body.workingHours.trim() } });
+    await this.audit.record({ actorUserId: actorId, action: 'CREATE_PHARMACY', entityType: 'Pharmacy', entityId: pharmacy.id, requestId: request.requestId, ipAddress: request.ip ?? 'unknown', userAgent: request.get('user-agent') ?? '', metadata: { pharmacyId: pharmacy.id, source: 'admin' } });
+    return { id: pharmacy.id, status: pharmacy.registrationStatus };
+  }
+
+  async updatePharmacy(actorId: string, id: string, body: CreateAdminPharmacyDto, request: RequestWithContext): Promise<{ updated: true }> {
+    await this.prisma.pharmacy.update({ where: { id }, data: { name: body.name.trim(), technicalManager: body.technicalManager.trim(), technicalManagerIdentifier: body.technicalManagerIdentifier?.trim() || null, pharmacyIdentifier: body.pharmacyIdentifier?.trim() || null, licenseNumber: body.licenseNumber.trim(), licenseExpirationDate: new Date(body.licenseExpirationDate), mobile: normalizeMobile(body.mobile), phone: body.phone.trim(), province: body.province.trim(), city: body.city.trim(), address: body.address.trim(), postalCode: body.postalCode.trim(), workingHours: body.workingHours.trim() } });
+    await this.audit.record({ actorUserId: actorId, action: 'UPDATE_PHARMACY', entityType: 'Pharmacy', entityId: id, requestId: request.requestId, ipAddress: request.ip ?? 'unknown', userAgent: request.get('user-agent') ?? '', metadata: { pharmacyId: id, source: 'admin' } });
+    return { updated: true };
   }
 
   async softDeletePharmacy(id: string, adminId: string, request: RequestWithContext): Promise<{ deleted: true }> {

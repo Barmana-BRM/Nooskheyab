@@ -36,3 +36,19 @@ export class UpdateInsuranceDto {
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() sortOrder?: number;
 }
+
+export class CreateAdminPharmacyDto {
+  @IsString() @MinLength(2) @MaxLength(160) name!: string;
+  @IsString() @MinLength(2) @MaxLength(160) technicalManager!: string;
+  @IsOptional() @IsString() @MaxLength(30) technicalManagerIdentifier?: string;
+  @IsOptional() @IsString() @MaxLength(50) pharmacyIdentifier?: string;
+  @IsString() @MinLength(2) @MaxLength(80) licenseNumber!: string;
+  @IsString() licenseExpirationDate!: string;
+  @IsString() mobile!: string;
+  @IsString() @MaxLength(30) phone!: string;
+  @IsString() @MinLength(2) @MaxLength(80) province!: string;
+  @IsString() @MinLength(2) @MaxLength(80) city!: string;
+  @IsString() @MinLength(5) @MaxLength(500) address!: string;
+  @IsString() @MaxLength(10) postalCode!: string;
+  @IsString() @MinLength(2) @MaxLength(500) workingHours!: string;
+}

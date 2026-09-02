@@ -3,7 +3,7 @@ import { CurrentUser, Roles } from '../common/auth.decorators';
 import type { AuthenticatedUser, RequestWithContext } from '../common/request-context';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { AdminDecisionDto, CreateAdminUserDto, CreateInsuranceDto, UpdateInsuranceDto, UpdateUserDto } from './admin.dto';
+import { AdminDecisionDto, CreateAdminPharmacyDto, CreateAdminUserDto, CreateInsuranceDto, UpdateInsuranceDto, UpdateUserDto } from './admin.dto';
 import { AdminService } from './admin.service';
 import { PrescriptionListQueryDto } from '../prescriptions/prescription.dto';
 
@@ -22,6 +22,10 @@ export class AdminController {
   @Post('pharmacy-registrations/:id/reject') reject(@Param('id') id: string, @Body() body: AdminDecisionDto, @CurrentUser() user: AuthenticatedUser, @Req() request: RequestWithContext) { return this.admin.reviewRegistration(id, user.id, 'REJECTED', body.message, request); }
   @Post('pharmacy-registrations/:id/request-changes') requestChanges(@Param('id') id: string, @Body() body: AdminDecisionDto, @CurrentUser() user: AuthenticatedUser, @Req() request: RequestWithContext) { return this.admin.reviewRegistration(id, user.id, 'CHANGES_REQUESTED', body.message, request); }
   @Get('pharmacies') pharmacies() { return this.admin.pharmacies(); }
+  @Get('pharmacies/:id') pharmacy(@Param('id') id: string) { return this.admin.pharmacyDetail(id); }
+  @Post('pharmacies') createPharmacy(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateAdminPharmacyDto, @Req() request: RequestWithContext) { return this.admin.createPharmacy(user.id, body, request); }
+  @Put('pharmacies/:id') updatePharmacy(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: CreateAdminPharmacyDto, @Req() request: RequestWithContext) { return this.admin.updatePharmacy(user.id, id, body, request); }
+  @Get('pharmacy-registrations/:pharmacyId/documents/:documentId/url') documentUrl(@Param('pharmacyId') pharmacyId: string, @Param('documentId') documentId: string) { return this.admin.documentUrl(pharmacyId, documentId); }
   @Post('pharmacies/:id/suspend') suspend(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Req() request: RequestWithContext) { return this.admin.suspendPharmacy(id, user.id, request); }
   @Post('pharmacies/:id/reactivate') reactivate(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Req() request: RequestWithContext) { return this.admin.reactivatePharmacy(id, user.id, request); }
   @Delete('pharmacies/:id') delete(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Req() request: RequestWithContext) { return this.admin.softDeletePharmacy(id, user.id, request); }

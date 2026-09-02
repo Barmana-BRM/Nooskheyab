@@ -146,6 +146,12 @@ export class PharmacyService {
     return { url: await this.storage.createSignedReadUrl(document.storageKey), expiresIn: this.config.get('S3_SIGNED_URL_TTL_SECONDS') };
   }
 
+  async adminSignedDocumentUrl(pharmacyId: string, documentId: string): Promise<{ url: string; expiresIn: number }> {
+    const document = await this.prisma.pharmacyDocument.findFirst({ where: { id: documentId, pharmacyId }, select: { storageKey: true } });
+    if (!document) throw new AppError('NOT_FOUND', 'مدرک پیدا نشد.', 404);
+    return { url: await this.storage.createSignedReadUrl(document.storageKey), expiresIn: this.config.get('S3_SIGNED_URL_TTL_SECONDS') };
+  }
+
   async adminRegistrations(status?: string): Promise<Array<Record<string, unknown>>> {
     const allowed = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'CHANGES_REQUESTED', 'SUSPENDED'];
     const rows = await this.prisma.pharmacy.findMany({ where: { deletedAt: null, ...(status && allowed.includes(status) ? { registrationStatus: status as RegistrationStatus } : {}) }, orderBy: { createdAt: 'desc' }, take: 100, include: { documents: true, reviewHistory: true } });

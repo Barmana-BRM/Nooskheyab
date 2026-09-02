@@ -12,8 +12,8 @@ export default tseslint.config(
       '**/test-results/**',
       'apps/web/android/**',
       'apps/web/ios/**',
-      'apps/web/public/**'
-    ]
+      'apps/web/public/**',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -22,7 +22,7 @@ export default tseslint.config(
     files: ['**/*.ts', '**/*.tsx'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/consistent-type-imports': 'off'
-    }
-  }
+      '@typescript-eslint/consistent-type-imports': 'off',
+    },
+  },
 );

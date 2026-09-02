@@ -32,12 +32,15 @@ const parseDurationMs = (value: string): number => {
   const amount = Number(match[1]);
   const unit = match[2];
   if (!unit) throw new Error('Invalid duration configuration');
-  const multiplier = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }[unit.toLowerCase() as 's' | 'm' | 'h' | 'd'];
+  const multiplier = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }[
+    unit.toLowerCase() as 's' | 'm' | 'h' | 'd'
+  ];
   return amount * multiplier;
 };
 
 const hashToken = (value: string): string => createHash('sha256').update(value).digest('hex');
-const genericLoginError = (): UnauthorizedException => new UnauthorizedException('نام کاربری یا رمز عبور نادرست است.');
+const genericLoginError = (): UnauthorizedException =>
+  new UnauthorizedException('نام کاربری یا رمز عبور نادرست است.');
 const createCsrfToken = (): string => randomBytes(32).toString('base64url');
 
 @Injectable()
@@ -64,10 +67,19 @@ export class AuthService {
       this.config.get('LOGIN_RATE_LIMIT'),
       this.config.get('LOGIN_RATE_WINDOW_SECONDS'),
     );
-    if (!allowed) throw new AppError('RATE_LIMITED', 'تعداد تلاش‌های ورود بیش از حد مجاز است.', 429);
+    if (!allowed)
+      throw new AppError('RATE_LIMITED', 'تعداد تلاش‌های ورود بیش از حد مجاز است.', 429);
 
-    const user = await this.prisma.user.findUnique({ where: { username }, include: { pharmacy: true } });
-    if (!user || !user.isActive || user.deletedAt || (user.lockedUntil && user.lockedUntil > new Date())) {
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+      include: { pharmacy: true },
+    });
+    if (
+      !user ||
+      !user.isActive ||
+      user.deletedAt ||
+      (user.lockedUntil && user.lockedUntil > new Date())
+    ) {
       await this.recordLoginFailure(user, request);
       throw genericLoginError();
     }
@@ -83,7 +95,9 @@ export class AuthService {
     }
 
     const refreshToken = randomBytes(48).toString('base64url');
-    const expiresAt = new Date(Date.now() + parseDurationMs(this.config.get('JWT_REFRESH_EXPIRES_IN')));
+    const expiresAt = new Date(
+      Date.now() + parseDurationMs(this.config.get('JWT_REFRESH_EXPIRES_IN')),
+    );
     const session = await this.prisma.$transaction(async (transaction) => {
       await transaction.user.update({
         where: { id: user.id },
@@ -124,13 +138,24 @@ export class AuthService {
       where: { refreshTokenHash: hashToken(rawToken) },
       include: { user: true },
     });
-    if (!session || session.revokedAt || session.expiresAt <= new Date() || !session.user.isActive || session.user.deletedAt) {
+    if (
+      !session ||
+      session.revokedAt ||
+      session.expiresAt <= new Date() ||
+      !session.user.isActive ||
+      session.user.deletedAt
+    ) {
       throw genericLoginError();
     }
     const nextRefreshToken = randomBytes(48).toString('base64url');
-    const nextExpiresAt = new Date(Date.now() + parseDurationMs(this.config.get('JWT_REFRESH_EXPIRES_IN')));
+    const nextExpiresAt = new Date(
+      Date.now() + parseDurationMs(this.config.get('JWT_REFRESH_EXPIRES_IN')),
+    );
     const nextSession = await this.prisma.$transaction(async (transaction) => {
-      const revoked = await transaction.refreshSession.updateMany({ where: { id: session.id, revokedAt: null, expiresAt: { gt: new Date() } }, data: { revokedAt: new Date() } });
+      const revoked = await transaction.refreshSession.updateMany({
+        where: { id: session.id, revokedAt: null, expiresAt: { gt: new Date() } },
+        data: { revokedAt: new Date() },
+      });
       if (revoked.count !== 1) throw genericLoginError();
       return transaction.refreshSession.create({
         data: {
@@ -152,7 +177,10 @@ export class AuthService {
     return { accessToken, refreshToken: nextRefreshToken };
   }
 
-  async logout(rawToken: string | undefined, request: RequestWithContext): Promise<{ loggedOut: true }> {
+  async logout(
+    rawToken: string | undefined,
+    request: RequestWithContext,
+  ): Promise<{ loggedOut: true }> {
     if (rawToken) {
       await this.prisma.refreshSession.updateMany({
         where: { refreshTokenHash: hashToken(rawToken), revokedAt: null },
@@ -170,7 +198,11 @@ export class AuthService {
     return { loggedOut: true };
   }
 
-  async me(userId: string): Promise<Pick<User, 'id' | 'firstName' | 'lastName' | 'username' | 'mobile' | 'role' | 'pharmacyId'>> {
+  async me(
+    userId: string,
+  ): Promise<
+    Pick<User, 'id' | 'firstName' | 'lastName' | 'username' | 'mobile' | 'role' | 'pharmacyId'>
+  > {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || !user.isActive || user.deletedAt) throw genericLoginError();
     return {
@@ -185,7 +217,11 @@ export class AuthService {
   }
 
   clearRefreshCookie(response: Response): void {
-    response.clearCookie(REFRESH_COOKIE_NAME, { httpOnly: true, sameSite: 'lax', secure: this.config.get('NODE_ENV') === 'production' });
+    response.clearCookie(REFRESH_COOKIE_NAME, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: this.config.get('NODE_ENV') === 'production',
+    });
   }
 
   setRefreshCookie(response: Response, token: string): void {
@@ -217,10 +253,19 @@ export class AuthService {
   assertCsrf(request: RequestWithContext): void {
     const cookie = request.cookies?.[CSRF_COOKIE_NAME] as string | undefined;
     const header = request.header('x-csrf-token');
-    if (!cookie || !header || cookie.length !== header.length || !timingSafeEqual(Buffer.from(cookie), Buffer.from(header))) throw new AppError('CSRF_INVALID', 'درخواست امنیتی معتبر نیست.', 403);
+    if (
+      !cookie ||
+      !header ||
+      cookie.length !== header.length ||
+      !timingSafeEqual(Buffer.from(cookie), Buffer.from(header))
+    )
+      throw new AppError('CSRF_INVALID', 'درخواست امنیتی معتبر نیست.', 403);
   }
 
-  private async recordLoginFailure(user: (User & { pharmacy: unknown }) | null, request: RequestWithContext): Promise<void> {
+  private async recordLoginFailure(
+    user: (User & { pharmacy: unknown }) | null,
+    request: RequestWithContext,
+  ): Promise<void> {
     if (user) {
       const failedLoginCount = user.failedLoginCount + 1;
       const lockThreshold = 5;
@@ -228,7 +273,8 @@ export class AuthService {
         where: { id: user.id },
         data: {
           failedLoginCount,
-          lockedUntil: failedLoginCount >= lockThreshold ? new Date(Date.now() + 15 * 60_000) : null,
+          lockedUntil:
+            failedLoginCount >= lockThreshold ? new Date(Date.now() + 15 * 60_000) : null,
         },
       });
       await this.audit.record({

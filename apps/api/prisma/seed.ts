@@ -4,7 +4,18 @@ import argon2 from 'argon2';
 const prisma = new PrismaClient();
 
 const baseInsurances = ['تأمین اجتماعی', 'بیمه سلامت', 'نیروهای مسلح', 'خدمات درمانی', 'سایر'];
-const supplementaryInsurances = ['دانا', 'دی', 'آسیا', 'ایران', 'البرز', 'سامان', 'پارسیان', 'ملت', 'آتیه‌سازان', 'سایر'];
+const supplementaryInsurances = [
+  'دانا',
+  'دی',
+  'آسیا',
+  'ایران',
+  'البرز',
+  'سامان',
+  'پارسیان',
+  'ملت',
+  'آتیه‌سازان',
+  'سایر',
+];
 
 async function main(): Promise<void> {
   for (const [sortOrder, name] of baseInsurances.entries()) {

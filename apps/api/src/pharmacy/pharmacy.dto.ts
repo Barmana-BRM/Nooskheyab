@@ -39,7 +39,8 @@ export class UpdatePharmacyDto {
 }
 
 export class DocumentUploadDto {
-  @IsIn(['PHARMACY_LICENSE', 'TECHNICAL_MANAGER_CARD', 'OTHER']) documentType!: 'PHARMACY_LICENSE' | 'TECHNICAL_MANAGER_CARD' | 'OTHER';
+  @IsIn(['PHARMACY_LICENSE', 'TECHNICAL_MANAGER_CARD', 'OTHER']) documentType!:
+    'PHARMACY_LICENSE' | 'TECHNICAL_MANAGER_CARD' | 'OTHER';
 }
 
 export class ReviewMessageDto {

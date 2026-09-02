@@ -14,22 +14,39 @@ export class PrescriptionController {
   }
 
   @Get(':publicId')
-  get(@Param('publicId') publicId: string, @Headers(PUBLIC_TOKEN_HEADER) token: string | undefined, @Req() request: RequestWithContext) {
+  get(
+    @Param('publicId') publicId: string,
+    @Headers(PUBLIC_TOKEN_HEADER) token: string | undefined,
+    @Req() request: RequestWithContext,
+  ) {
     return this.prescriptions.getPublic(publicId, token, request);
   }
 
   @Post(':publicId/select-pharmacy')
-  select(@Param('publicId') publicId: string, @Body() body: SelectPharmacyDto, @Headers(PUBLIC_TOKEN_HEADER) token: string | undefined, @Req() request: RequestWithContext) {
+  select(
+    @Param('publicId') publicId: string,
+    @Body() body: SelectPharmacyDto,
+    @Headers(PUBLIC_TOKEN_HEADER) token: string | undefined,
+    @Req() request: RequestWithContext,
+  ) {
     return this.prescriptions.selectPharmacy(publicId, token, body.pharmacyId, request);
   }
 
   @Post(':publicId/cancel')
-  cancel(@Param('publicId') publicId: string, @Headers(PUBLIC_TOKEN_HEADER) token: string | undefined, @Req() request: RequestWithContext) {
+  cancel(
+    @Param('publicId') publicId: string,
+    @Headers(PUBLIC_TOKEN_HEADER) token: string | undefined,
+    @Req() request: RequestWithContext,
+  ) {
     return this.prescriptions.cancel(publicId, token, request);
   }
 
   @Post(':publicId/complete')
-  complete(@Param('publicId') publicId: string, @Headers(PUBLIC_TOKEN_HEADER) token: string | undefined, @Req() request: RequestWithContext) {
+  complete(
+    @Param('publicId') publicId: string,
+    @Headers(PUBLIC_TOKEN_HEADER) token: string | undefined,
+    @Req() request: RequestWithContext,
+  ) {
     return this.prescriptions.complete(publicId, token, request);
   }
 }

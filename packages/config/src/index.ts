@@ -44,7 +44,9 @@ export type AppEnvironment = z.infer<typeof environmentSchema>;
 export const parseEnvironment = (source: NodeJS.ProcessEnv): AppEnvironment => {
   const result = environmentSchema.safeParse(source);
   if (!result.success) {
-    const issues = result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+    const issues = result.error.issues
+      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+      .join('; ');
     throw new Error(`Invalid environment configuration: ${issues}`);
   }
   return result.data;

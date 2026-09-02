@@ -1,4 +1,4 @@
-import type { ExecutionContext} from '@nestjs/common';
+import type { ExecutionContext } from '@nestjs/common';
 import { createParamDecorator, SetMetadata } from '@nestjs/common';
 import type { RequestWithContext } from './request-context';
 

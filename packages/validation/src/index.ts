@@ -54,8 +54,14 @@ export const prescriptionCreateSchema = z
       ),
     baseInsuranceId: z.string().uuid('بیمه پایه را انتخاب کنید.'),
     hasSupplementaryInsurance: z.boolean(),
-    supplementaryInsuranceId: z.preprocess((value) => value === '' ? null : value, z.string().uuid().nullable().optional()),
-    supplementaryDescription: z.preprocess((value) => value === '' ? null : value, z.string().trim().max(500).nullable().optional()),
+    supplementaryInsuranceId: z.preprocess(
+      (value) => (value === '' ? null : value),
+      z.string().uuid().nullable().optional(),
+    ),
+    supplementaryDescription: z.preprocess(
+      (value) => (value === '' ? null : value),
+      z.string().trim().max(500).nullable().optional(),
+    ),
     patientDescription: z.string().trim().max(1000).nullable().optional(),
     honeypot: z.string().max(0).optional(),
   })
@@ -67,7 +73,10 @@ export const prescriptionCreateSchema = z
         message: 'انتخاب بیمه تکمیلی الزامی است.',
       });
     }
-    if (!value.hasSupplementaryInsurance && (value.supplementaryInsuranceId || value.supplementaryDescription)) {
+    if (
+      !value.hasSupplementaryInsurance &&
+      (value.supplementaryInsuranceId || value.supplementaryDescription)
+    ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['hasSupplementaryInsurance'],
@@ -84,7 +93,10 @@ export const pharmacyResponseSchema = z
     description: z.string().trim().max(1000).nullable().optional(),
   })
   .superRefine((value, context) => {
-    if (value.availabilityStatus === 'PARTIAL_AVAILABLE' && (!value.description || value.description.length < 3)) {
+    if (
+      value.availabilityStatus === 'PARTIAL_AVAILABLE' &&
+      (!value.description || value.description.length < 3)
+    ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['description'],
@@ -101,7 +113,12 @@ export const loginSchema = z.object({
 export const pharmacyRegistrationSchema = z.object({
   firstName: z.string().trim().min(2).max(100),
   lastName: z.string().trim().min(2).max(100),
-  username: z.string().trim().min(3).max(80).regex(/^[a-zA-Z0-9_.-]+$/),
+  username: z
+    .string()
+    .trim()
+    .min(3)
+    .max(80)
+    .regex(/^[a-zA-Z0-9_.-]+$/),
   password: z.string().min(10).max(128),
   mobile: mobileSchema,
   pharmacyName: z.string().trim().min(2).max(160),
@@ -109,12 +126,17 @@ export const pharmacyRegistrationSchema = z.object({
   technicalManagerIdentifier: z.string().trim().max(30).nullable().optional(),
   pharmacyIdentifier: z.string().trim().max(50).nullable().optional(),
   licenseNumber: z.string().trim().min(2).max(80),
-  licenseExpirationDate: z.string().refine((value) => !Number.isNaN(new Date(value).getTime()), 'تاریخ اعتبار معتبر نیست.'),
+  licenseExpirationDate: z
+    .string()
+    .refine((value) => !Number.isNaN(new Date(value).getTime()), 'تاریخ اعتبار معتبر نیست.'),
   phone: z.string().trim().max(30),
   province: z.string().trim().min(2).max(80),
   city: z.string().trim().min(2).max(80),
   address: z.string().trim().min(5).max(500),
-  postalCode: z.string().transform((value) => normalizeDigits(value).trim()).pipe(z.string().regex(/^\d{10}$/, 'کد پستی باید ۱۰ رقم باشد.')),
+  postalCode: z
+    .string()
+    .transform((value) => normalizeDigits(value).trim())
+    .pipe(z.string().regex(/^\d{10}$/, 'کد پستی باید ۱۰ رقم باشد.')),
   workingHours: z.string().trim().min(2).max(500),
 });
 

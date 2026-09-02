@@ -1,5 +1,42 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { Card, Empty, ErrorState, Loading, PageTitle, StatusBadge } from '../../components/ui';
-interface Insurance { id: string; name: string; type: string; isActive: boolean }
-export const InsurancePage = () => { const query = useQuery({ queryKey: ['admin', 'insurance'], queryFn: () => api.request<Insurance[]>('/admin/insurance') }); if (query.isPending) return <Loading />; if (query.isError) return <ErrorState onRetry={() => void query.refetch()} />; return <><PageTitle title="بیمه‌ها" description="فهرست بیمه‌های قابل انتخاب در فرم بیمار." /><Card>{query.data.length ? <div className="mobile-row-list">{query.data.map((row) => <div className="mobile-row" key={row.id}><div className="button-row" style={{ justifyContent: 'space-between' }}><strong>{row.name}</strong><StatusBadge status={row.isActive ? 'APPROVED' : 'SUSPENDED'} label={row.isActive ? 'فعال' : 'غیرفعال'} /></div><span className="muted">{row.type === 'BASE' ? 'پایه' : 'تکمیلی'}</span></div>)}</div> : <Empty />}</Card></>; };
+interface Insurance {
+  id: string;
+  name: string;
+  type: string;
+  isActive: boolean;
+}
+export const InsurancePage = () => {
+  const query = useQuery({
+    queryKey: ['admin', 'insurance'],
+    queryFn: () => api.request<Insurance[]>('/admin/insurance'),
+  });
+  if (query.isPending) return <Loading />;
+  if (query.isError) return <ErrorState onRetry={() => void query.refetch()} />;
+  return (
+    <>
+      <PageTitle title="بیمه‌ها" description="فهرست بیمه‌های قابل انتخاب در فرم بیمار." />
+      <Card>
+        {query.data.length ? (
+          <div className="mobile-row-list">
+            {query.data.map((row) => (
+              <div className="mobile-row" key={row.id}>
+                <div className="button-row" style={{ justifyContent: 'space-between' }}>
+                  <strong>{row.name}</strong>
+                  <StatusBadge
+                    status={row.isActive ? 'APPROVED' : 'SUSPENDED'}
+                    label={row.isActive ? 'فعال' : 'غیرفعال'}
+                  />
+                </div>
+                <span className="muted">{row.type === 'BASE' ? 'پایه' : 'تکمیلی'}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Empty />
+        )}
+      </Card>
+    </>
+  );
+};

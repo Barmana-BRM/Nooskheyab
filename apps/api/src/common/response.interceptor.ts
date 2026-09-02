@@ -7,6 +7,8 @@ import type { RequestWithContext } from './request-context';
 export class ResponseEnvelopeInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<RequestWithContext>();
-    return next.handle().pipe(map((data: unknown) => ({ success: true, data, requestId: request.requestId })));
+    return next
+      .handle()
+      .pipe(map((data: unknown) => ({ success: true, data, requestId: request.requestId })));
   }
 }

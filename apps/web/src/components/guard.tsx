@@ -6,8 +6,19 @@ import type { UserRole } from '@pharmacy-mvp/types';
 
 export const AuthGuard = ({ roles }: { roles: UserRole[] }) => {
   const location = useLocation();
-  const query = useQuery({ queryKey: ['auth', 'me'], queryFn: () => api.request<{ role: UserRole }>('/auth/me'), retry: false });
+  const query = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: () => api.request<{ role: UserRole }>('/auth/me'),
+    retry: false,
+  });
   if (query.isPending) return <Loading />;
-  if (query.isError || !query.data || !roles.includes(query.data.role)) return <Navigate to={query.data?.role?.startsWith('PHARMACY') ? '/pharmacy/login' : '/admin/login'} replace state={{ from: location.pathname }} />;
+  if (query.isError || !query.data || !roles.includes(query.data.role))
+    return (
+      <Navigate
+        to={query.data?.role?.startsWith('PHARMACY') ? '/pharmacy/login' : '/admin/login'}
+        replace
+        state={{ from: location.pathname }}
+      />
+    );
   return <Outlet />;
 };

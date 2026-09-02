@@ -30,17 +30,30 @@ export class PharmacyPrescriptionController {
   }
 
   @Get('prescriptions/:id')
-  detail(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Req() request: RequestWithContext) {
+  detail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Req() request: RequestWithContext,
+  ) {
     return this.prescriptions.getForPharmacy(id, user.pharmacyId as string, request);
   }
 
   @Post('prescriptions/:id/view')
-  view(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Req() request: RequestWithContext) {
+  view(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Req() request: RequestWithContext,
+  ) {
     return this.prescriptions.getForPharmacy(id, user.pharmacyId as string, request);
   }
 
   @Post('prescriptions/:id/respond')
-  respond(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() body: RespondPrescriptionDto, @Req() request: RequestWithContext) {
+  respond(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() body: RespondPrescriptionDto,
+    @Req() request: RequestWithContext,
+  ) {
     return this.prescriptions.respond(id, user.pharmacyId as string, user.id, body, request);
   }
 

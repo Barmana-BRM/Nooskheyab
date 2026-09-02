@@ -12,6 +12,13 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const request = event.request;
-  if (new URL(request.url).origin !== self.location.origin || request.method !== 'GET' || request.url.includes('/api/')) return;
-  event.respondWith(fetch(request).catch(() => caches.match(request).then((cached) => cached ?? caches.match('/'))));
+  if (
+    new URL(request.url).origin !== self.location.origin ||
+    request.method !== 'GET' ||
+    request.url.includes('/api/')
+  )
+    return;
+  event.respondWith(
+    fetch(request).catch(() => caches.match(request).then((cached) => cached ?? caches.match('/'))),
+  );
 });

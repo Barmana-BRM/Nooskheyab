@@ -1,11 +1,5 @@
-import type {
-  ArgumentsHost,
-  ExceptionFilter} from '@nestjs/common';
-import {
-  Catch,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
+import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
+import { Catch, HttpException, HttpStatus } from '@nestjs/common';
 import type { Response } from 'express';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import type { RequestWithContext } from './request-context';
@@ -39,7 +33,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         const messages = Array.isArray(record.message) ? record.message : undefined;
         body = {
           code: status === HttpStatus.UNPROCESSABLE_ENTITY ? 'VALIDATION_ERROR' : 'REQUEST_ERROR',
-          message: messages ? 'اطلاعات واردشده معتبر نیست.' : typeof record.message === 'string' ? record.message : 'درخواست معتبر نیست.',
+          message: messages
+            ? 'اطلاعات واردشده معتبر نیست.'
+            : typeof record.message === 'string'
+              ? record.message
+              : 'درخواست معتبر نیست.',
         };
         if (messages) body.fields = { form: messages.join('، ') };
       }

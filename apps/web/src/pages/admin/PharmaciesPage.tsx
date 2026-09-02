@@ -1,7 +1,77 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { statusLabel } from '../../lib/status';
-import { Button, Card, Empty, ErrorState, Loading, PageTitle, StatusBadge } from '../../components/ui';
+import {
+  Button,
+  Card,
+  Empty,
+  ErrorState,
+  Loading,
+  PageTitle,
+  StatusBadge,
+} from '../../components/ui';
 
-interface Pharmacy { id: string; name: string; mobile: string; province: string; city: string; registrationStatus: string; isActive: boolean; licenseExpirationDate: string }
-export const PharmaciesPage = () => { const query = useQuery({ queryKey: ['admin', 'pharmacies'], queryFn: () => api.request<Pharmacy[]>('/admin/pharmacies') }); const action = useMutation({ mutationFn: ({ id, type }: { id: string; type: 'suspend' | 'reactivate' }) => api.request(`/admin/pharmacies/${id}/${type}`, { method: 'POST' }), onSuccess: () => void query.refetch() }); if (query.isPending) return <Loading />; if (query.isError) return <ErrorState onRetry={() => void query.refetch()} />; return <><PageTitle title="داروخانه‌ها" description="فعال‌سازی و تعلیق با حفظ سوابق انجام می‌شود." /><Card>{query.data.length ? <div className="mobile-row-list">{query.data.map((row) => <div className="mobile-row" key={row.id}><div className="button-row" style={{ justifyContent: 'space-between' }}><strong>{row.name}</strong><StatusBadge status={row.registrationStatus} label={statusLabel(row.registrationStatus)} /></div><span className="muted">{row.province}، {row.city} · {row.mobile}</span><div className="button-row">{row.registrationStatus === 'APPROVED' ? <Button className="btn-danger" onClick={() => action.mutate({ id: row.id, type: 'suspend' })}>تعلیق</Button> : row.registrationStatus === 'SUSPENDED' ? <Button onClick={() => action.mutate({ id: row.id, type: 'reactivate' })}>فعال‌سازی</Button> : null}</div></div>)}</div> : <Empty />}</Card></>; };
+interface Pharmacy {
+  id: string;
+  name: string;
+  mobile: string;
+  province: string;
+  city: string;
+  registrationStatus: string;
+  isActive: boolean;
+  licenseExpirationDate: string;
+}
+export const PharmaciesPage = () => {
+  const query = useQuery({
+    queryKey: ['admin', 'pharmacies'],
+    queryFn: () => api.request<Pharmacy[]>('/admin/pharmacies'),
+  });
+  const action = useMutation({
+    mutationFn: ({ id, type }: { id: string; type: 'suspend' | 'reactivate' }) =>
+      api.request(`/admin/pharmacies/${id}/${type}`, { method: 'POST' }),
+    onSuccess: () => void query.refetch(),
+  });
+  if (query.isPending) return <Loading />;
+  if (query.isError) return <ErrorState onRetry={() => void query.refetch()} />;
+  return (
+    <>
+      <PageTitle title="داروخانه‌ها" description="فعال‌سازی و تعلیق با حفظ سوابق انجام می‌شود." />
+      <Card>
+        {query.data.length ? (
+          <div className="mobile-row-list">
+            {query.data.map((row) => (
+              <div className="mobile-row" key={row.id}>
+                <div className="button-row" style={{ justifyContent: 'space-between' }}>
+                  <strong>{row.name}</strong>
+                  <StatusBadge
+                    status={row.registrationStatus}
+                    label={statusLabel(row.registrationStatus)}
+                  />
+                </div>
+                <span className="muted">
+                  {row.province}، {row.city} · {row.mobile}
+                </span>
+                <div className="button-row">
+                  {row.registrationStatus === 'APPROVED' ? (
+                    <Button
+                      className="btn-danger"
+                      onClick={() => action.mutate({ id: row.id, type: 'suspend' })}
+                    >
+                      تعلیق
+                    </Button>
+                  ) : row.registrationStatus === 'SUSPENDED' ? (
+                    <Button onClick={() => action.mutate({ id: row.id, type: 'reactivate' })}>
+                      فعال‌سازی
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Empty />
+        )}
+      </Card>
+    </>
+  );
+};

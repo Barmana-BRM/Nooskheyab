@@ -6,4 +6,7 @@ export const api = new ApiClient({
   authStorage,
 });
 
-export const jsonBody = (value: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(value) });
+export const jsonBody = (value: unknown): RequestInit => ({
+  method: 'POST',
+  body: JSON.stringify(value),
+});

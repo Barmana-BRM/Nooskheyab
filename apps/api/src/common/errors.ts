@@ -12,6 +12,11 @@ export class AppError extends HttpException {
 }
 
 export const publicNotFound = (): AppError =>
-  new AppError('PRESCRIPTION_NOT_FOUND', 'درخواست پیدا نشد یا کد دسترسی معتبر نیست.', HttpStatus.NOT_FOUND);
+  new AppError(
+    'PRESCRIPTION_NOT_FOUND',
+    'درخواست پیدا نشد یا کد دسترسی معتبر نیست.',
+    HttpStatus.NOT_FOUND,
+  );
 
-export const conflict = (code: string, message: string): AppError => new AppError(code, message, HttpStatus.CONFLICT);
+export const conflict = (code: string, message: string): AppError =>
+  new AppError(code, message, HttpStatus.CONFLICT);

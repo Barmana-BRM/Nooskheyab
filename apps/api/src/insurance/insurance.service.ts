@@ -5,7 +5,10 @@ import { RedisService } from '../common/redis.service';
 
 @Injectable()
 export class InsuranceService {
-  constructor(private readonly prisma: PrismaService, private readonly redis: RedisService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
 
   async list(type: InsuranceType): Promise<Array<{ id: string; name: string }>> {
     const key = `pharmacy-mvp:insurance:${type.toLowerCase()}`;
@@ -21,7 +24,10 @@ export class InsuranceService {
   }
 
   async assertActive(id: string, type: InsuranceType): Promise<void> {
-    const provider = await this.prisma.insuranceProvider.findFirst({ where: { id, type, isActive: true }, select: { id: true } });
+    const provider = await this.prisma.insuranceProvider.findFirst({
+      where: { id, type, isActive: true },
+      select: { id: true },
+    });
     if (!provider) throw new Error('Insurance provider is not active');
   }
 }

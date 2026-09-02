@@ -44,7 +44,8 @@ export class ApiClient {
   async request<T>(path: string, init: RequestInit = {}, allowRefresh = true): Promise<T> {
     const headers = new Headers(init.headers);
     headers.set('Accept', 'application/json');
-    if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+    if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type'))
+      headers.set('Content-Type', 'application/json');
     const accessToken = this.authStorage.getAccessToken();
     if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
 
@@ -61,7 +62,10 @@ export class ApiClient {
     try {
       payload = (await response.json()) as ApiSuccess<T> | ApiError;
     } catch {
-      throw new ApiClientError(response.status, { code: 'HTTP_ERROR', message: 'خطا در ارتباط با سامانه.' });
+      throw new ApiClientError(response.status, {
+        code: 'HTTP_ERROR',
+        message: 'خطا در ارتباط با سامانه.',
+      });
     }
     if (!response.ok || !payload.success) {
       if (!payload.success) throw new ApiClientError(response.status, payload.error);
@@ -86,7 +90,10 @@ export class ApiClient {
     const refreshToken = await this.authStorage.getRefreshToken();
     let csrfToken = this.authStorage.getCsrfToken?.() ?? null;
     if (!refreshToken && !csrfToken) {
-      const csrfResponse = await this.fetcher(`${this.baseUrl}/auth/csrf`, { method: 'GET', credentials: 'include' });
+      const csrfResponse = await this.fetcher(`${this.baseUrl}/auth/csrf`, {
+        method: 'GET',
+        credentials: 'include',
+      });
       if (csrfResponse.ok) {
         const csrfPayload = (await csrfResponse.json()) as ApiSuccess<{ csrfToken: string }>;
         if (csrfPayload.success) {
@@ -107,10 +114,14 @@ export class ApiClient {
       await this.authStorage.setRefreshToken(null);
       return false;
     }
-    const payload = (await response.json()) as ApiSuccess<{ accessToken: string; refreshToken?: string }>;
+    const payload = (await response.json()) as ApiSuccess<{
+      accessToken: string;
+      refreshToken?: string;
+    }>;
     if (!payload.success) return false;
     this.authStorage.setAccessToken(payload.data.accessToken);
-    if (payload.data.refreshToken) await this.authStorage.setRefreshToken(payload.data.refreshToken);
+    if (payload.data.refreshToken)
+      await this.authStorage.setRefreshToken(payload.data.refreshToken);
     return true;
   }
 }

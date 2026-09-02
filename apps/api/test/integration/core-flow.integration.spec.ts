@@ -15,7 +15,8 @@ describe('database and Redis integration', () => {
   let redisReady = false;
 
   beforeAll(async () => {
-    if (process.env.NODE_ENV === 'production') throw new Error('Integration tests cannot run against production.');
+    if (process.env.NODE_ENV === 'production')
+      throw new Error('Integration tests cannot run against production.');
     await prisma.$connect();
     databaseReady = true;
     await redis.connect();
@@ -31,7 +32,9 @@ describe('database and Redis integration', () => {
 
   it('persists the request fan-out and enforces tenant and selection boundaries', async () => {
     const suffix = randomUUID().replaceAll('-', '').slice(0, 16);
-    const insurance = await prisma.insuranceProvider.create({ data: { name: `Integration ${suffix}`, type: 'BASE' } });
+    const insurance = await prisma.insuranceProvider.create({
+      data: { name: `Integration ${suffix}`, type: 'BASE' },
+    });
     const pharmacyA = await prisma.pharmacy.create({
       data: {
         name: `Integration A ${suffix}`,
@@ -64,8 +67,28 @@ describe('database and Redis integration', () => {
         registrationStatus: 'APPROVED',
       },
     });
-    const userA = await prisma.user.create({ data: { firstName: 'تست', lastName: 'داروخانه', username: `integration-a-${suffix}`, mobile: `099${suffix.slice(0, 8)}`, passwordHash: 'integration-only', role: 'PHARMACY_ADMIN', pharmacyId: pharmacyA.id } });
-    const userB = await prisma.user.create({ data: { firstName: 'تست', lastName: 'داروخانه', username: `integration-b-${suffix}`, mobile: `098${suffix.slice(0, 8)}`, passwordHash: 'integration-only', role: 'PHARMACY_ADMIN', pharmacyId: pharmacyB.id } });
+    const userA = await prisma.user.create({
+      data: {
+        firstName: 'تست',
+        lastName: 'داروخانه',
+        username: `integration-a-${suffix}`,
+        mobile: `099${suffix.slice(0, 8)}`,
+        passwordHash: 'integration-only',
+        role: 'PHARMACY_ADMIN',
+        pharmacyId: pharmacyA.id,
+      },
+    });
+    const userB = await prisma.user.create({
+      data: {
+        firstName: 'تست',
+        lastName: 'داروخانه',
+        username: `integration-b-${suffix}`,
+        mobile: `098${suffix.slice(0, 8)}`,
+        passwordHash: 'integration-only',
+        role: 'PHARMACY_ADMIN',
+        pharmacyId: pharmacyB.id,
+      },
+    });
     const prescription = await prisma.prescription.create({
       data: {
         publicId: `RX-INT${suffix.slice(0, 8).toUpperCase()}`,
@@ -80,31 +103,85 @@ describe('database and Redis integration', () => {
     });
 
     try {
-      const assignments = await prisma.prescriptionPharmacyRequest.findMany({ where: { prescriptionId: prescription.id }, orderBy: { pharmacyId: 'asc' } });
+      const assignments = await prisma.prescriptionPharmacyRequest.findMany({
+        where: { prescriptionId: prescription.id },
+        orderBy: { pharmacyId: 'asc' },
+      });
       expect(assignments).toHaveLength(2);
-      expect(await prisma.prescriptionPharmacyRequest.count({ where: { id: assignments[0]?.id, pharmacyId: pharmacyB.id } })).toBe(0);
+      expect(
+        await prisma.prescriptionPharmacyRequest.count({
+          where: { id: assignments[0]?.id, pharmacyId: pharmacyB.id },
+        }),
+      ).toBe(0);
 
-      await prisma.pharmacyResponse.create({ data: { prescriptionId: prescription.id, pharmacyId: pharmacyA.id, userId: userA.id, availabilityStatus: 'FULL_AVAILABLE' } });
-      await prisma.pharmacyResponse.create({ data: { prescriptionId: prescription.id, pharmacyId: pharmacyB.id, userId: userB.id, availabilityStatus: 'PARTIAL_AVAILABLE', description: 'بخشی از اقلام موجود است.' } });
+      await prisma.pharmacyResponse.create({
+        data: {
+          prescriptionId: prescription.id,
+          pharmacyId: pharmacyA.id,
+          userId: userA.id,
+          availabilityStatus: 'FULL_AVAILABLE',
+        },
+      });
+      await prisma.pharmacyResponse.create({
+        data: {
+          prescriptionId: prescription.id,
+          pharmacyId: pharmacyB.id,
+          userId: userB.id,
+          availabilityStatus: 'PARTIAL_AVAILABLE',
+          description: 'بخشی از اقلام موجود است.',
+        },
+      });
 
       const firstSelection = await prisma.$transaction(async (transaction) => {
-        const update = await transaction.prescription.updateMany({ where: { id: prescription.id, selectedPharmacyId: null, cancelledAt: null, completedAt: null, expiresAt: { gt: new Date() } }, data: { selectedPharmacyId: pharmacyA.id, status: 'SELECTED_PHARMACY' } });
+        const update = await transaction.prescription.updateMany({
+          where: {
+            id: prescription.id,
+            selectedPharmacyId: null,
+            cancelledAt: null,
+            completedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          data: { selectedPharmacyId: pharmacyA.id, status: 'SELECTED_PHARMACY' },
+        });
         if (update.count !== 1) throw new Error('selection failed');
-        await transaction.prescriptionPharmacyRequest.update({ where: { prescriptionId_pharmacyId: { prescriptionId: prescription.id, pharmacyId: pharmacyA.id } }, data: { status: 'SELECTED' } });
-        await transaction.prescriptionPharmacyRequest.updateMany({ where: { prescriptionId: prescription.id, pharmacyId: { not: pharmacyA.id } }, data: { status: 'CLOSED' } });
+        await transaction.prescriptionPharmacyRequest.update({
+          where: {
+            prescriptionId_pharmacyId: {
+              prescriptionId: prescription.id,
+              pharmacyId: pharmacyA.id,
+            },
+          },
+          data: { status: 'SELECTED' },
+        });
+        await transaction.prescriptionPharmacyRequest.updateMany({
+          where: { prescriptionId: prescription.id, pharmacyId: { not: pharmacyA.id } },
+          data: { status: 'CLOSED' },
+        });
         return update.count;
       });
       expect(firstSelection).toBe(1);
-      const secondSelection = await prisma.prescription.updateMany({ where: { id: prescription.id, selectedPharmacyId: null }, data: { selectedPharmacyId: pharmacyB.id, status: 'SELECTED_PHARMACY' } });
+      const secondSelection = await prisma.prescription.updateMany({
+        where: { id: prescription.id, selectedPharmacyId: null },
+        data: { selectedPharmacyId: pharmacyB.id, status: 'SELECTED_PHARMACY' },
+      });
       expect(secondSelection.count).toBe(0);
-      const finalAssignments = await prisma.prescriptionPharmacyRequest.findMany({ where: { prescriptionId: prescription.id }, select: { pharmacyId: true, status: true } });
-      expect(finalAssignments.find((item) => item.pharmacyId === pharmacyA.id)?.status).toBe('SELECTED');
-      expect(finalAssignments.find((item) => item.pharmacyId === pharmacyB.id)?.status).toBe('CLOSED');
+      const finalAssignments = await prisma.prescriptionPharmacyRequest.findMany({
+        where: { prescriptionId: prescription.id },
+        select: { pharmacyId: true, status: true },
+      });
+      expect(finalAssignments.find((item) => item.pharmacyId === pharmacyA.id)?.status).toBe(
+        'SELECTED',
+      );
+      expect(finalAssignments.find((item) => item.pharmacyId === pharmacyB.id)?.status).toBe(
+        'CLOSED',
+      );
       expect(await redis.ping()).toBe('PONG');
     } finally {
       await prisma.$transaction([
         prisma.pharmacyResponse.deleteMany({ where: { prescriptionId: prescription.id } }),
-        prisma.prescriptionPharmacyRequest.deleteMany({ where: { prescriptionId: prescription.id } }),
+        prisma.prescriptionPharmacyRequest.deleteMany({
+          where: { prescriptionId: prescription.id },
+        }),
         prisma.prescription.delete({ where: { id: prescription.id } }),
         prisma.user.deleteMany({ where: { id: { in: [userA.id, userB.id] } } }),
         prisma.pharmacy.deleteMany({ where: { id: { in: [pharmacyA.id, pharmacyB.id] } } }),

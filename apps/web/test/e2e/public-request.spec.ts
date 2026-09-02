@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 
-test('patient request form exposes labels and conditional supplementary insurance', async ({ page }) => {
+test('patient request form exposes labels and conditional supplementary insurance', async ({
+  page,
+}) => {
   await page.goto('/request');
   await expect(page.getByRole('heading', { name: 'ثبت درخواست نسخه' })).toBeVisible();
   await expect(page.getByLabel('شماره موبایل')).toBeVisible();

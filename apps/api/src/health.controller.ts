@@ -4,7 +4,10 @@ import { RedisService } from './common/redis.service';
 
 @Controller('health')
 export class HealthController {
-  constructor(private readonly prisma: PrismaService, private readonly redis: RedisService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
 
   @Get()
   async health(): Promise<{ status: 'ok' }> {

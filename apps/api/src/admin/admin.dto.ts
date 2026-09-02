@@ -1,4 +1,13 @@
-import { IsBoolean, IsIn, IsISO8601, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class AdminDecisionDto {
   @IsOptional()
@@ -13,7 +22,8 @@ export class CreateAdminUserDto {
   @IsString() @MinLength(3) @MaxLength(80) username!: string;
   @IsString() @MinLength(10) @MaxLength(128) password!: string;
   @IsString() mobile!: string;
-  @IsIn(['ADMIN', 'SUPER_ADMIN', 'PHARMACY_ADMIN', 'PHARMACY_USER']) role!: 'ADMIN' | 'SUPER_ADMIN' | 'PHARMACY_ADMIN' | 'PHARMACY_USER';
+  @IsIn(['ADMIN', 'SUPER_ADMIN', 'PHARMACY_ADMIN', 'PHARMACY_USER']) role!:
+    'ADMIN' | 'SUPER_ADMIN' | 'PHARMACY_ADMIN' | 'PHARMACY_USER';
   @IsOptional() @IsUUID() pharmacyId?: string;
 }
 
@@ -22,7 +32,8 @@ export class UpdateUserDto {
   @IsOptional() @IsString() @MaxLength(100) lastName?: string;
   @IsOptional() @IsString() mobile?: string;
   @IsOptional() @IsBoolean() isActive?: boolean;
-  @IsOptional() @IsIn(['ADMIN', 'SUPER_ADMIN', 'PHARMACY_ADMIN', 'PHARMACY_USER']) role?: 'ADMIN' | 'SUPER_ADMIN' | 'PHARMACY_ADMIN' | 'PHARMACY_USER';
+  @IsOptional() @IsIn(['ADMIN', 'SUPER_ADMIN', 'PHARMACY_ADMIN', 'PHARMACY_USER']) role?:
+    'ADMIN' | 'SUPER_ADMIN' | 'PHARMACY_ADMIN' | 'PHARMACY_USER';
 }
 
 export class CreateInsuranceDto {

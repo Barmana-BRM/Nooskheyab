@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma} from '@prisma/client';
 import { type AvailabilityStatus, type PrescriptionStatus } from '@prisma/client';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
 import { ConfigService } from '@nestjs/config';
 import { prescriptionCreateSchema, pharmacyResponseSchema } from '@pharmacy-mvp/validation';
@@ -39,6 +39,13 @@ export class PrescriptionService {
   ) {}
 
   async create(body: CreatePrescriptionDto, request: RequestWithContext): Promise<PublicPrescriptionData> {
+    const idempotencyKey = request.header('idempotency-key');
+    const validIdempotencyKey = Boolean(idempotencyKey && /^[A-Za-z0-9._:-]{8,128}$/.test(idempotencyKey));
+    const idempotencyCacheKey = validIdempotencyKey ? `pharmacy-mvp:idempotency:prescription:${idempotencyKey}` : null;
+    if (idempotencyCacheKey) {
+      const cached = await this.redis.getJson<PublicPrescriptionData>(idempotencyCacheKey);
+      if (cached) return cached;
+    }
     const createAllowed = await this.redis.consumeRateLimit(
       `pharmacy-mvp:prescription-create:${request.ip ?? 'unknown'}`,
       this.config.get('PRESCRIPTION_CREATE_RATE_LIMIT'),
@@ -70,70 +77,77 @@ export class PrescriptionService {
       });
     }
 
-    const idempotencyKey = request.header('idempotency-key');
-    if (idempotencyKey && /^[A-Za-z0-9._:-]{8,128}$/.test(idempotencyKey)) {
-      const cached = await this.redis.getJson<PublicPrescriptionData>(`pharmacy-mvp:idempotency:prescription:${idempotencyKey}`);
-      if (cached) return cached;
+    let idempotencyLockKey: string | null = null;
+    if (idempotencyCacheKey && this.redis.client.status === 'ready') {
+      idempotencyLockKey = `${idempotencyCacheKey}:lock`;
+      const acquired = await this.redis.setIfNotExists(idempotencyLockKey, randomUUID(), 30);
+      if (!acquired) {
+        const cached = await this.redis.getJson<PublicPrescriptionData>(idempotencyCacheKey);
+        if (cached) return cached;
+        throw conflict('IDEMPOTENCY_IN_PROGRESS', 'درخواست مشابهی در حال پردازش است.');
+      }
     }
 
-    const accessToken = randomBytes(32).toString('base64url');
-    const publicId = await this.generatePublicId();
-    const expiresAt = new Date(Date.now() + this.config.get('PRESCRIPTION_EXPIRATION_HOURS') * 3_600_000);
-    const pharmacies = await this.prisma.pharmacy.findMany({
-      where: { registrationStatus: 'APPROVED', isActive: true, deletedAt: null, licenseExpirationDate: { gt: new Date() } },
-      select: { id: true },
-    });
-    const prescription = await this.prisma.$transaction(async (transaction) => {
-      const created = await transaction.prescription.create({
-        data: {
-          publicId,
-          accessTokenHash: hashAccessToken(accessToken),
-          mobile: parsed.data.mobile,
-          nationalId: parsed.data.nationalId,
-          prescriptionTrackingCode: parsed.data.prescriptionTrackingCode,
-          baseInsuranceId: parsed.data.baseInsuranceId,
-          hasSupplementaryInsurance: parsed.data.hasSupplementaryInsurance,
-          supplementaryInsuranceId: parsed.data.hasSupplementaryInsurance ? parsed.data.supplementaryInsuranceId ?? null : null,
-          supplementaryDescription: parsed.data.hasSupplementaryInsurance ? parsed.data.supplementaryDescription || null : null,
-          patientDescription: parsed.data.patientDescription || null,
-          expiresAt,
-          assignments: { create: pharmacies.map(({ id }) => ({ pharmacyId: id })) },
-        },
-        select: { id: true, publicId: true, status: true, expiresAt: true },
+    try {
+      const accessToken = randomBytes(32).toString('base64url');
+      const publicId = await this.generatePublicId();
+      const expiresAt = new Date(Date.now() + this.config.get('PRESCRIPTION_EXPIRATION_HOURS') * 3_600_000);
+      const pharmacies = await this.prisma.pharmacy.findMany({
+        where: { registrationStatus: 'APPROVED', isActive: true, deletedAt: null, licenseExpirationDate: { gt: new Date() } },
+        select: { id: true },
       });
-      if (pharmacies.length) {
-        await transaction.notification.createMany({
-          data: pharmacies.map(({ id }) => ({
-            pharmacyId: id,
-            type: 'NEW_PRESCRIPTION',
-            entityId: created.id,
-            title: 'درخواست نسخه جدید',
-            body: 'یک درخواست نسخه جدید برای بررسی شما ارسال شده است.',
-          })),
+      const prescription = await this.prisma.$transaction(async (transaction) => {
+        const created = await transaction.prescription.create({
+          data: {
+            publicId,
+            accessTokenHash: hashAccessToken(accessToken),
+            mobile: parsed.data.mobile,
+            nationalId: parsed.data.nationalId,
+            prescriptionTrackingCode: parsed.data.prescriptionTrackingCode,
+            baseInsuranceId: parsed.data.baseInsuranceId,
+            hasSupplementaryInsurance: parsed.data.hasSupplementaryInsurance,
+            supplementaryInsuranceId: parsed.data.hasSupplementaryInsurance ? parsed.data.supplementaryInsuranceId ?? null : null,
+            supplementaryDescription: parsed.data.hasSupplementaryInsurance ? parsed.data.supplementaryDescription || null : null,
+            patientDescription: parsed.data.patientDescription || null,
+            expiresAt,
+            assignments: { create: pharmacies.map(({ id }) => ({ pharmacyId: id })) },
+          },
+          select: { id: true, publicId: true, status: true, expiresAt: true },
         });
-      }
-      return created;
-    });
-    const result: PublicPrescriptionData = {
-      publicId: prescription.publicId,
-      accessToken,
-      status: prescription.status,
-      statusUrl: `${this.config.get('WEB_APP_URL')}/request/${prescription.publicId}?token=${encodeURIComponent(accessToken)}`,
-      expiresAt: prescription.expiresAt.toISOString(),
-    };
-    if (idempotencyKey && /^[A-Za-z0-9._:-]{8,128}$/.test(idempotencyKey)) {
-      await this.redis.setJson(`pharmacy-mvp:idempotency:prescription:${idempotencyKey}`, result, 900);
+        if (pharmacies.length) {
+          await transaction.notification.createMany({
+            data: pharmacies.map(({ id }) => ({
+              pharmacyId: id,
+              type: 'NEW_PRESCRIPTION',
+              entityId: created.id,
+              title: 'درخواست نسخه جدید',
+              body: 'یک درخواست نسخه جدید برای بررسی شما ارسال شده است.',
+            })),
+          });
+        }
+        return created;
+      });
+      const result: PublicPrescriptionData = {
+        publicId: prescription.publicId,
+        accessToken,
+        status: prescription.status,
+        statusUrl: `${this.config.get('WEB_APP_URL')}/request/${prescription.publicId}?token=${encodeURIComponent(accessToken)}`,
+        expiresAt: prescription.expiresAt.toISOString(),
+      };
+      if (idempotencyCacheKey) await this.redis.setJson(idempotencyCacheKey, result, 900);
+      await this.audit.record({
+        action: 'CREATE_PRESCRIPTION',
+        entityType: 'Prescription',
+        entityId: prescription.id,
+        requestId: request.requestId,
+        ipAddress: request.ip ?? 'unknown',
+        userAgent: request.get('user-agent') ?? '',
+        metadata: { publicId: prescription.publicId, pharmacyCount: pharmacies.length },
+      });
+      return result;
+    } finally {
+      if (idempotencyLockKey) await this.redis.delete(idempotencyLockKey);
     }
-    await this.audit.record({
-      action: 'CREATE_PRESCRIPTION',
-      entityType: 'Prescription',
-      entityId: prescription.id,
-      requestId: request.requestId,
-      ipAddress: request.ip ?? 'unknown',
-      userAgent: request.get('user-agent') ?? '',
-      metadata: { publicId: prescription.publicId, pharmacyCount: pharmacies.length },
-    });
-    return result;
   }
 
   async getPublic(publicId: string, rawToken: string | undefined, request: RequestWithContext): Promise<Record<string, unknown>> {

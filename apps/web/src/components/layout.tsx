@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { LogOut, Menu, ShieldCheck, Stethoscope } from 'lucide-react';
+import { LogOut, Menu, ShieldCheck } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Network } from '@capacitor/network';
 import { useEffect, useState } from 'react';
@@ -10,12 +10,10 @@ import { useNavigate } from 'react-router-dom';
 
 export const PublicLayout = () => (
   <div className="public-shell">
-    <OfflineBanner />
+      <OfflineBanner />
     <header className="site-header">
       <Link to="/" className="brand-mark">
-        <span className="brand-icon">
-          <Stethoscope size={20} />
-        </span>
+        <img className="brand-logo" src="/logo-mark.svg" alt="" aria-hidden="true" />
         <span>نسخه‌یار</span>
       </Link>
       <nav>
@@ -89,9 +87,8 @@ export const PortalLayout = ({ kind }: { kind: 'pharmacy' | 'admin' }) => {
       <OfflineBanner />
       <aside className={`portal-sidebar ${open ? 'open' : ''}`}>
         <div className="portal-brand">
-          <span className="brand-icon">
-            {kind === 'admin' ? <ShieldCheck size={20} /> : <Stethoscope size={20} />}
-          </span>
+          <img className="brand-logo" src="/logo-mark.svg" alt="" aria-hidden="true" />
+          {kind === 'admin' ? <ShieldCheck size={18} aria-hidden="true" /> : null}
           {kind === 'admin' ? 'مدیریت سامانه' : 'پنل داروخانه'}
         </div>
         <nav className="portal-nav">

@@ -4,6 +4,7 @@
 
 :root {
   font-family: 'Vazirmatn', Tahoma, Arial, sans-serif;
+  font-weight: 500;
   color: #10211f;
   background: #f6f9f8;
   font-synthesis: none;
@@ -45,6 +46,19 @@ body {
   min-width: 320px;
   min-height: 100dvh;
   background: var(--background);
+  font-weight: 500;
+}
+img {
+  display: block;
+  max-width: 100%;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 700;
 }
 .offline-banner {
   position: fixed;
@@ -113,6 +127,12 @@ a {
   font-weight: 700;
   color: var(--brand-900);
 }
+.brand-logo {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  border-radius: 0.75rem;
+}
 .brand-icon {
   display: inline-flex;
   align-items: center;
@@ -166,11 +186,33 @@ a {
   line-height: 1.9;
 }
 .hero-card {
-  padding: 1.5rem;
+  padding: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 1.25rem;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(12px);
+}
+.hero-visual {
+  overflow: hidden;
+  border-radius: 0.95rem;
+  background: var(--brand-50);
+}
+.hero-visual img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1200 / 768;
+  object-fit: cover;
+}
+.hero-card-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.75rem 0.5rem 0.3rem;
+}
+.hero-card-content > svg {
+  flex: 0 0 auto;
+  margin-top: 0.12rem;
+  color: #a8e4dd;
 }
 .hero-card p {
   margin: 0;
@@ -201,11 +243,29 @@ a {
   gap: 1rem;
 }
 .step {
-  padding: 1.25rem;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 1.15rem;
   border: 1px solid var(--border);
-  border-radius: 1rem;
   background: #fff;
   box-shadow: 0 10px 30px rgba(16, 42, 67, 0.04);
+}
+.step-media {
+  padding: 0.5rem;
+  background: var(--brand-50);
+}
+.step-media img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 0.85rem;
+}
+.step-content {
+  padding: 1rem 1.15rem 1.25rem;
+}
+.step {
+  padding: 1.25rem;
 }
 .step-number {
   display: inline-flex;
@@ -273,6 +333,31 @@ a {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
+}
+.cta-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  align-items: center;
+  gap: 1.25rem;
+  overflow: hidden;
+  padding: 1.25rem 1.35rem 1.25rem 1.25rem;
+}
+.cta-content {
+  min-width: 0;
+}
+.cta-content .button-row {
+  justify-content: space-between;
+}
+.cta-visual {
+  overflow: hidden;
+  border-radius: 1rem;
+  background: var(--brand-50);
+}
+.cta-visual img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
 }
 
 .form-page {
@@ -834,6 +919,9 @@ a {
   .hero-inner {
     padding: 3.5rem 1rem;
   }
+  .hero-card {
+    padding: 0.55rem;
+  }
   .section {
     padding: 3rem 1rem;
   }
@@ -864,6 +952,24 @@ a {
   .form-actions .btn,
   .status-header .btn {
     width: 100%;
+  }
+  .cta-card {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 0.9rem;
+  }
+  .cta-content .button-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .cta-content .button-row > a,
+  .cta-content .button-row .btn {
+    width: 100%;
+  }
+  .cta-visual {
+    width: min(100%, 220px);
+    margin-inline: auto;
+    order: -1;
   }
   .portal-sidebar {
     position: fixed;

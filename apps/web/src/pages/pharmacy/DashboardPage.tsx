@@ -67,7 +67,7 @@ export const PharmacyDashboardPage = () => {
           <div className="button-row">
             <span className="muted">
               <Bell size={15} style={{ verticalAlign: 'middle' }} /> اعلان‌های خوانده‌نشده:{' '}
-              <strong>{stats.data.unreadNotifications}</strong>
+              <strong>{stats.data.unreadNotifications}</strong> · امروز: {stats.data.today}
             </span>
             <Button className="btn-secondary" onClick={() => void rows.refetch()}>
               <RefreshCw size={15} />

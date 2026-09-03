@@ -4,7 +4,7 @@
 
 :root {
   font-family: 'Vazirmatn', Tahoma, Arial, sans-serif;
-  font-weight: 500;
+  font-weight: 600;
   color: #10211f;
   background: #f6f9f8;
   font-synthesis: none;
@@ -46,7 +46,7 @@ body {
   min-width: 320px;
   min-height: 100dvh;
   background: var(--background);
-  font-weight: 500;
+  font-weight: 600;
 }
 img {
   display: block;
@@ -124,14 +124,42 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 0.65rem;
+  min-height: 44px;
   font-weight: 700;
   color: var(--brand-900);
 }
 .brand-logo {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
   flex: 0 0 auto;
-  border-radius: 0.75rem;
+  border-radius: 0.9rem;
+}
+.brand-copy,
+.portal-brand-copy {
+  display: grid;
+  gap: 0.1rem;
+  line-height: 1.15;
+}
+.brand-copy strong,
+.portal-brand-copy strong {
+  color: var(--brand-950);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+.brand-copy small,
+.portal-brand-copy small {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.portal-brand .brand-logo {
+  width: 2.55rem;
+  height: 2.55rem;
+}
+.portal-brand-copy strong {
+  color: var(--brand-900);
 }
 .site-footer {
   margin-top: auto;
@@ -190,7 +218,7 @@ a {
 .hero-visual img {
   width: 100%;
   height: auto;
-  aspect-ratio: 1200 / 768;
+  aspect-ratio: 3 / 2;
   object-fit: cover;
 }
 .hero-card-content {
@@ -241,12 +269,13 @@ a {
   box-shadow: 0 10px 30px rgba(16, 42, 67, 0.04);
 }
 .step-media {
+  aspect-ratio: 1;
   padding: 0.5rem;
   background: var(--brand-50);
 }
 .step-media img {
   width: 100%;
-  height: auto;
+  height: 100%;
   aspect-ratio: 1;
   object-fit: cover;
   border-radius: 0.85rem;
@@ -389,7 +418,7 @@ a {
 .field-label {
   color: #294542;
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 700;
 }
 .input {
   width: 100%;
@@ -582,7 +611,7 @@ a {
   padding: 0.3rem 0.6rem;
   border-radius: 999px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
 }
 .status-badge > span {
@@ -900,6 +929,17 @@ a {
   }
 }
 @media (max-width: 640px) {
+  .site-header {
+    padding-right: max(0.9rem, env(safe-area-inset-right));
+    padding-left: max(0.9rem, env(safe-area-inset-left));
+  }
+  .brand-logo {
+    width: 2.55rem;
+    height: 2.55rem;
+  }
+  .brand-copy small {
+    display: none;
+  }
   .site-header nav a:first-child {
     display: none;
   }

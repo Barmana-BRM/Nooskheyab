@@ -257,8 +257,10 @@ const ResponseCard = ({
       <p style={{ margin: 0, lineHeight: 1.8 }}>{response.description}</p>
     ) : null}
     {response.availabilityStatus === 'NOT_AVAILABLE' ? <XCircle color="#b91c1c" size={18} /> : null}
-    <Button disabled={disabled} onClick={onSelect}>
-      انتخاب این داروخانه
-    </Button>
+    {response.availabilityStatus !== 'NOT_AVAILABLE' ? (
+      <Button disabled={disabled} onClick={onSelect}>
+        انتخاب این داروخانه
+      </Button>
+    ) : null}
   </Card>
 );

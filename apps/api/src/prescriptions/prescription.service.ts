@@ -808,9 +808,7 @@ export class PrescriptionService {
       ].includes(query.status)
         ? { status: query.status as PrescriptionStatus }
         : {}),
-      ...(query.pharmacyId
-        ? { assignments: { some: { pharmacyId: query.pharmacyId } } }
-        : {}),
+      ...(query.pharmacyId ? { assignments: { some: { pharmacyId: query.pharmacyId } } } : {}),
       ...(query.insuranceId ? { baseInsuranceId: query.insuranceId } : {}),
       ...(search
         ? {

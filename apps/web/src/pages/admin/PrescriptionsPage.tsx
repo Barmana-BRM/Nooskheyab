@@ -11,6 +11,7 @@ import {
   Input,
   Loading,
   PageTitle,
+  Select,
   StatusBadge,
 } from '../../components/ui';
 interface Row {
@@ -27,15 +28,50 @@ interface List {
   items: Row[];
   pagination: { total: number; pages: number };
 }
+interface PharmacyOption {
+  id: string;
+  name: string;
+}
+interface InsuranceOption {
+  id: string;
+  name: string;
+  type: string;
+}
 export const AdminPrescriptionsPage = () => {
   const [params, setParams] = useSearchParams();
   const search = params.get('search') ?? '';
+  const status = params.get('status') ?? '';
+  const pharmacyId = params.get('pharmacyId') ?? '';
+  const insuranceId = params.get('insuranceId') ?? '';
+  const dateFrom = params.get('dateFrom') ?? '';
+  const dateTo = params.get('dateTo') ?? '';
+  const filterKey = params.toString();
+  const pharmacies = useQuery({
+    queryKey: ['admin', 'pharmacies', 'options'],
+    queryFn: () => api.request<PharmacyOption[]>('/admin/pharmacies'),
+    staleTime: 60_000,
+  });
+  const insurance = useQuery({
+    queryKey: ['admin', 'insurance', 'options'],
+    queryFn: () => api.request<InsuranceOption[]>('/admin/insurance'),
+    staleTime: 60_000,
+  });
   const query = useQuery({
-    queryKey: ['admin', 'prescriptions', search],
-    queryFn: () =>
-      api.request<List>(
-        `/admin/prescriptions?limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}`,
-      ),
+    queryKey: ['admin', 'prescriptions', filterKey],
+    queryFn: () => {
+      const queryParams = new URLSearchParams({ limit: '50' });
+      for (const [key, value] of Object.entries({
+        search,
+        status,
+        pharmacyId,
+        insuranceId,
+        dateFrom,
+        dateTo,
+      })) {
+        if (value) queryParams.set(key, value);
+      }
+      return api.request<List>(`/admin/prescriptions?${queryParams.toString()}`);
+    },
   });
   return (
     <>
@@ -48,16 +84,60 @@ export const AdminPrescriptionsPage = () => {
           className="toolbar"
           onSubmit={(event) => {
             event.preventDefault();
-            const value = new FormData(event.currentTarget).get('search')?.toString() ?? '';
-            setParams(value ? { search: value } : {});
+            const formData = new FormData(event.currentTarget);
+            const next = new URLSearchParams();
+            for (const key of [
+              'search',
+              'status',
+              'pharmacyId',
+              'insuranceId',
+              'dateFrom',
+              'dateTo',
+            ]) {
+              const value = formData.get(key)?.toString().trim() ?? '';
+              if (value) next.set(key, value);
+            }
+            setParams(next);
           }}
         >
           <Input
             label="جست‌وجو"
             name="search"
             defaultValue={search}
-            placeholder="کد پیگیری یا کد رهگیری"
+            placeholder="کد، موبایل یا کد ملی"
           />
+          <Select label="وضعیت" name="status" defaultValue={status}>
+            <option value="">همه وضعیت‌ها</option>
+            <option value="PENDING">در انتظار بررسی</option>
+            <option value="UNDER_REVIEW">در حال بررسی</option>
+            <option value="ACCEPTED">پذیرش کامل</option>
+            <option value="PARTIAL">پذیرش ناقص</option>
+            <option value="REJECTED">عدم تأمین</option>
+            <option value="SELECTED_PHARMACY">داروخانه انتخاب شد</option>
+            <option value="EXPIRED">منقضی</option>
+            <option value="COMPLETED">تکمیل‌شده</option>
+            <option value="CANCELLED">لغوشده</option>
+          </Select>
+          <Select label="داروخانه" name="pharmacyId" defaultValue={pharmacyId}>
+            <option value="">همه داروخانه‌ها</option>
+            {pharmacies.data?.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+          <Select label="بیمه پایه" name="insuranceId" defaultValue={insuranceId}>
+            <option value="">همه بیمه‌ها</option>
+            {insurance.data
+              ?.filter((item) => item.type === 'BASE')
+              .map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+          </Select>
+          <Input label="از تاریخ" name="dateFrom" type="date" defaultValue={dateFrom} />
+          <Input label="تا تاریخ" name="dateTo" type="date" defaultValue={dateTo} />
           <Button type="submit">جست‌وجو</Button>
         </form>
         {query.isPending ? (

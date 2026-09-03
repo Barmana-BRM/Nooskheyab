@@ -28,9 +28,14 @@ export const SuccessPage = () => {
       </main>
     );
   const copy = async () => {
-    await navigator.clipboard.writeText(state.publicId);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    if (!navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(state.publicId);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
   };
   return (
     <main className="success-page">

@@ -68,8 +68,8 @@ export const LandingPage = () => (
             <img
               src="/images/landing/hero-prescription.webp"
               alt="مسیر ثبت نسخه تا بررسی و تأیید داروخانه"
-              width="1200"
-              height="768"
+              width="1536"
+              height="1024"
               sizes="(max-width: 900px) 100vw, 40vw"
               fetchPriority="high"
               decoding="async"

@@ -14,7 +14,10 @@ export const PublicLayout = () => (
     <header className="site-header">
       <Link to="/" className="brand-mark">
         <img className="brand-logo" src="/logo-mark.svg" alt="" aria-hidden="true" />
-        <span>نسخه‌یار</span>
+        <span className="brand-copy">
+          <strong>نسخه‌یار</strong>
+          <small>اطمینان قبل از مراجعه</small>
+        </span>
       </Link>
       <nav>
         <Link to="/request">ثبت درخواست</Link>
@@ -89,7 +92,10 @@ export const PortalLayout = ({ kind }: { kind: 'pharmacy' | 'admin' }) => {
         <div className="portal-brand">
           <img className="brand-logo" src="/logo-mark.svg" alt="" aria-hidden="true" />
           {kind === 'admin' ? <ShieldCheck size={18} aria-hidden="true" /> : null}
-          {kind === 'admin' ? 'مدیریت سامانه' : 'پنل داروخانه'}
+          <span className="portal-brand-copy">
+            <strong>نسخه‌یار</strong>
+            <small>{kind === 'admin' ? 'مدیریت سامانه' : 'پنل داروخانه'}</small>
+          </span>
         </div>
         <nav className="portal-nav">
           {links.map(([path, label]) => (

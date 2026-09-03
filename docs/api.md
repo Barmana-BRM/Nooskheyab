@@ -30,7 +30,7 @@ Access tokens are short-lived. Refresh tokens are rotated, hashed in `RefreshSes
 
 ## Pharmacy and admin
 
-Pharmacy registration, document, status, profile, dashboard, request, response, history and notification routes are implemented under `/api/v1/pharmacy`. Admin dashboard, prescription detail, registration review, pharmacy CRUD/soft-delete/suspend/reactivate, user management, insurance management and audit-log routes are implemented under `/api/v1/admin`. Prescription list routes accept bounded `status`, `page`, `limit`, `dateFrom`, `dateTo`, `search`, and `sort=newest|oldest` filters. Pharmacy IDs are taken from the authenticated user and never trusted from request body/query for tenant operations.
+Pharmacy registration, document, status, profile, dashboard, request, response, history and notification routes are implemented under `/api/v1/pharmacy`. Admin dashboard, prescription detail, registration review, pharmacy CRUD/soft-delete/suspend/reactivate, user management, insurance management and audit-log routes are implemented under `/api/v1/admin`. Prescription list routes accept bounded `status`, `page`, `limit`, `dateFrom`, `dateTo`, `search`, `sort=newest|oldest`, `pharmacyId`, and `insuranceId` filters; the latter two are admin-only filters. Audit logs additionally accept `action`, `entityType`, `actor`, `requestId`, `dateFrom`, and `dateTo`. Pharmacy IDs are taken from the authenticated user and never trusted from request body/query for tenant operations.
 
 Swagger is available at `/docs` only when enabled by configuration. In production it should remain disabled or be protected at the edge.
 

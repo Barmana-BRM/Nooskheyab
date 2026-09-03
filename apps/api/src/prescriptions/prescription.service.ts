@@ -584,6 +584,15 @@ export class PrescriptionService {
         data: { status: 'VIEWED', seenAt: new Date() },
       });
       if (viewed.count === 1) {
+        await this.prisma.notification.updateMany({
+          where: {
+            pharmacyId,
+            entityId: row.prescriptionId,
+            type: 'NEW_PRESCRIPTION',
+            readAt: null,
+          },
+          data: { readAt: new Date() },
+        });
         await this.refreshAggregate(row.prescriptionId);
         await this.audit.record({
           actorUserId: request.user?.id,
@@ -716,29 +725,31 @@ export class PrescriptionService {
   }
 
   async dashboard(pharmacyId: string): Promise<Record<string, number>> {
-    const [newCount, underReview, accepted, partial, rejected, today] = await Promise.all([
-      this.prisma.prescriptionPharmacyRequest.count({ where: { pharmacyId, status: 'SENT' } }),
-      this.prisma.prescriptionPharmacyRequest.count({
-        where: {
-          pharmacyId,
-          status: { in: ['VIEWED', 'RESPONDED'] },
-          prescription: { status: 'UNDER_REVIEW' },
-        },
-      }),
-      this.prisma.prescriptionPharmacyRequest.count({
-        where: { pharmacyId, prescription: { status: 'ACCEPTED' } },
-      }),
-      this.prisma.prescriptionPharmacyRequest.count({
-        where: { pharmacyId, prescription: { status: 'PARTIAL' } },
-      }),
-      this.prisma.prescriptionPharmacyRequest.count({
-        where: { pharmacyId, prescription: { status: 'REJECTED' } },
-      }),
-      this.prisma.prescriptionPharmacyRequest.count({
-        where: { pharmacyId, sentAt: { gte: startOfTehranDay(new Date()) } },
-      }),
-    ]);
-    return { new: newCount, underReview, accepted, partial, rejected, today };
+    const [newCount, underReview, accepted, partial, rejected, today, unreadNotifications] =
+      await Promise.all([
+        this.prisma.prescriptionPharmacyRequest.count({ where: { pharmacyId, status: 'SENT' } }),
+        this.prisma.prescriptionPharmacyRequest.count({
+          where: {
+            pharmacyId,
+            status: { in: ['VIEWED', 'RESPONDED'] },
+            prescription: { status: 'UNDER_REVIEW' },
+          },
+        }),
+        this.prisma.prescriptionPharmacyRequest.count({
+          where: { pharmacyId, prescription: { status: 'ACCEPTED' } },
+        }),
+        this.prisma.prescriptionPharmacyRequest.count({
+          where: { pharmacyId, prescription: { status: 'PARTIAL' } },
+        }),
+        this.prisma.prescriptionPharmacyRequest.count({
+          where: { pharmacyId, prescription: { status: 'REJECTED' } },
+        }),
+        this.prisma.prescriptionPharmacyRequest.count({
+          where: { pharmacyId, sentAt: { gte: startOfTehranDay(new Date()) } },
+        }),
+        this.prisma.notification.count({ where: { pharmacyId, readAt: null } }),
+      ]);
+    return { new: newCount, underReview, accepted, partial, rejected, today, unreadNotifications };
   }
 
   async notifications(
@@ -797,6 +808,10 @@ export class PrescriptionService {
       ].includes(query.status)
         ? { status: query.status as PrescriptionStatus }
         : {}),
+      ...(query.pharmacyId
+        ? { assignments: { some: { pharmacyId: query.pharmacyId } } }
+        : {}),
+      ...(query.insuranceId ? { baseInsuranceId: query.insuranceId } : {}),
       ...(search
         ? {
             OR: [

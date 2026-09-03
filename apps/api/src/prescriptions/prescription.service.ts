@@ -471,6 +471,16 @@ export class PrescriptionService {
   ): Promise<{ status: 'COMPLETED' }> {
     await this.consumePublicMutationRateLimit(publicId, request);
     const prescription = await this.findByPublicToken(publicId, rawToken);
+    if (!prescription.selectedPharmacyId && prescription.expiresAt <= new Date()) {
+      await this.expireIfNeeded(
+        prescription.id,
+        prescription.expiresAt,
+        prescription.selectedPharmacyId,
+        prescription.cancelledAt,
+        prescription.completedAt,
+      );
+      throw new AppError('PRESCRIPTION_EXPIRED', 'مهلت این درخواست به پایان رسیده است.', 410);
+    }
     if (!prescription.selectedPharmacyId)
       throw conflict('PHARMACY_NOT_SELECTED', 'ابتدا یک داروخانه را انتخاب کنید.');
     const update = await this.prisma.prescription.updateMany({

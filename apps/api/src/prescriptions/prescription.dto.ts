@@ -112,4 +112,12 @@ export class PrescriptionListQueryDto {
   @IsString()
   @IsIn(['newest', 'oldest'])
   sort?: string;
+
+  @IsOptional()
+  @IsUUID()
+  pharmacyId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  insuranceId?: string;
 }

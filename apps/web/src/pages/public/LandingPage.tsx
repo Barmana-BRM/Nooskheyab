@@ -70,6 +70,7 @@ export const LandingPage = () => (
               alt="مسیر ثبت نسخه تا بررسی و تأیید داروخانه"
               width="1200"
               height="768"
+              sizes="(max-width: 900px) 100vw, 40vw"
               fetchPriority="high"
               decoding="async"
             />
@@ -101,6 +102,7 @@ export const LandingPage = () => (
                 alt={step.alt}
                 width="640"
                 height="640"
+                sizes="(max-width: 640px) calc(100vw - 2rem), (max-width: 900px) 45vw, 25vw"
                 loading="lazy"
                 decoding="async"
               />
@@ -137,6 +139,7 @@ export const LandingPage = () => (
             alt=""
             width="640"
             height="640"
+            sizes="(max-width: 640px) 220px, 190px"
             loading="lazy"
             decoding="async"
           />

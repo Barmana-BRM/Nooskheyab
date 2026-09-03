@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 
 export const PublicLayout = () => (
   <div className="public-shell">
-      <OfflineBanner />
+    <OfflineBanner />
     <header className="site-header">
       <Link to="/" className="brand-mark">
         <img className="brand-logo" src="/logo-mark.svg" alt="" aria-hidden="true" />

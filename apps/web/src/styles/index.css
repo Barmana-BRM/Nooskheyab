@@ -133,16 +133,6 @@ a {
   flex: 0 0 auto;
   border-radius: 0.75rem;
 }
-.brand-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  color: #fff;
-  border-radius: 0.75rem;
-  background: var(--brand-900);
-}
 .site-footer {
   margin-top: auto;
   padding: 1.5rem 1rem calc(1.5rem + env(safe-area-inset-bottom));

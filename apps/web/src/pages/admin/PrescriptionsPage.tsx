@@ -14,7 +14,7 @@ import {
   StatusBadge,
 } from '../../components/ui';
 interface Row {
-  id?: string;
+  id: string;
   publicId: string;
   status: string;
   mobile: string;
@@ -82,10 +82,7 @@ export const AdminPrescriptionsPage = () => {
                 {query.data.items.map((row) => (
                   <tr key={row.publicId}>
                     <td>
-                      <Link
-                        className="link-button"
-                        to={`/admin/prescriptions/${row.id ?? row.publicId}`}
-                      >
+                      <Link className="link-button" to={`/admin/prescriptions/${row.id}`}>
                         {row.publicId}
                       </Link>
                     </td>
@@ -101,7 +98,7 @@ export const AdminPrescriptionsPage = () => {
                 ))}
               </tbody>
             </table>
-            <div className="mobile-row-list">
+            <div className="mobile-row-list mobile-only-list">
               {query.data.items.map((row) => (
                 <div className="mobile-row" key={row.publicId}>
                   <div className="button-row" style={{ justifyContent: 'space-between' }}>
@@ -111,10 +108,7 @@ export const AdminPrescriptionsPage = () => {
                   <span className="muted">
                     {row.mobile} · {row.baseInsurance}
                   </span>
-                  <Link
-                    className="link-button"
-                    to={`/admin/prescriptions/${row.id ?? row.publicId}`}
-                  >
+                  <Link className="link-button" to={`/admin/prescriptions/${row.id}`}>
                     جزئیات
                   </Link>
                 </div>

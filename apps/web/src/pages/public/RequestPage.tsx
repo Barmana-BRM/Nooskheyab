@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { prescriptionCreateSchema, type PrescriptionCreateInput } from '@pharmacy-mvp/validation';
+import { ApiClientError } from '@pharmacy-mvp/api-client';
 import { api } from '../../lib/api';
 import { Button, Card, Input, PageTitle, Select, Textarea } from '../../components/ui';
 
@@ -53,6 +54,17 @@ export const RequestPage = () => {
         body: JSON.stringify(value),
       }),
     onSuccess: (data) => navigate('/request/success', { state: data }),
+    onError: (error) => {
+      if (error instanceof ApiClientError && error.fields) {
+        for (const [field, message] of Object.entries(error.fields)) {
+          if (field in form.getValues())
+            form.setError(field as keyof PrescriptionCreateInput, {
+              type: 'server',
+              message,
+            });
+        }
+      }
+    },
   });
   const hasSupplementary = form.watch('hasSupplementaryInsurance');
   const submit = form.handleSubmit((value) => create.mutate(value));
@@ -174,7 +186,7 @@ export const RequestPage = () => {
             با ثبت درخواست، اطلاعات نسخه برای بررسی تأمین در اختیار داروخانه‌های عضو و تأییدشده قرار
             می‌گیرد. این سامانه حساب کاربری بیمار ایجاد نمی‌کند.
           </div>
-          <div className="form-actions">
+          <div className="form-actions sticky-actions">
             <span className="muted" style={{ fontSize: '.8rem' }}>
               فیلدهای ستاره‌دار اجباری هستند.
             </span>

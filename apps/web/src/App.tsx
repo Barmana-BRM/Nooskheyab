@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { PublicLayout, PortalLayout } from './components/layout';
 import { AuthGuard } from './components/guard';
 import { Loading } from './components/ui';
@@ -59,6 +59,11 @@ const AdminPrescriptions = lazy(() =>
     default: module.AdminPrescriptionsPage,
   })),
 );
+const AdminPrescriptionDetail = lazy(() =>
+  import('./pages/admin/PrescriptionDetailPage').then((module) => ({
+    default: module.AdminPrescriptionDetailPage,
+  })),
+);
 const AdminRegistrations = lazy(() =>
   import('./pages/admin/RegistrationsPage').then((module) => ({
     default: module.RegistrationsPage,
@@ -72,6 +77,9 @@ const AdminRegistrationDetail = lazy(() =>
 const AdminPharmacies = lazy(() =>
   import('./pages/admin/PharmaciesPage').then((module) => ({ default: module.PharmaciesPage })),
 );
+const AdminPharmacyForm = lazy(() =>
+  import('./pages/admin/PharmacyFormPage').then((module) => ({ default: module.PharmacyFormPage })),
+);
 const AdminUsers = lazy(() =>
   import('./pages/admin/UsersPage').then((module) => ({ default: module.UsersPage })),
 );
@@ -84,6 +92,7 @@ const AdminLogs = lazy(() =>
 
 export const App = () => (
   <Suspense fallback={<Loading />}>
+    <RouteFocus />
     <Routes>
       <Route element={<PublicLayout />}>
         <Route path="/" element={<LandingPage />} />
@@ -108,9 +117,12 @@ export const App = () => (
       <Route element={<AuthGuard roles={['ADMIN', 'SUPER_ADMIN']} />}>
         <Route element={<PortalLayout kind="admin" />}>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/prescriptions/:id" element={<AdminPrescriptionDetail />} />
           <Route path="/admin/prescriptions" element={<AdminPrescriptions />} />
           <Route path="/admin/pharmacy-registrations" element={<AdminRegistrations />} />
           <Route path="/admin/pharmacy-registrations/:id" element={<AdminRegistrationDetail />} />
+          <Route path="/admin/pharmacies/create" element={<AdminPharmacyForm />} />
+          <Route path="/admin/pharmacies/:id" element={<AdminPharmacyForm />} />
           <Route path="/admin/pharmacies" element={<AdminPharmacies />} />
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/insurance" element={<AdminInsurance />} />
@@ -121,3 +133,19 @@ export const App = () => (
     </Routes>
   </Suspense>
 );
+
+const RouteFocus = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const focusHeading = window.setTimeout(() => {
+      const heading = document.querySelector<HTMLElement>('main h1, h1');
+      if (!heading) return;
+      if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+      heading.focus({ preventScroll: true });
+    }, 0);
+    return () => window.clearTimeout(focusHeading);
+  }, [location.pathname]);
+
+  return null;
+};

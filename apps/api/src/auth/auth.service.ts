@@ -2,9 +2,9 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import argon2 from 'argon2';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Response } from 'express';
-import type { User, UserRole } from '@prisma/client';
+import type { RegistrationStatus, User, UserRole } from '@prisma/client';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
 import { AuditService } from '../common/audit.service';
 import { AppError } from '../common/errors';
@@ -12,6 +12,7 @@ import type { RequestWithContext } from '../common/request-context';
 import { PrismaService } from '../common/prisma.service';
 import { RedisService } from '../common/redis.service';
 import { CSRF_COOKIE_NAME, REFRESH_COOKIE_NAME } from '../common/constants';
+import { hashOpaqueToken } from '../common/token-hash';
 
 interface JwtPayload {
   sub: string;
@@ -38,7 +39,6 @@ const parseDurationMs = (value: string): number => {
   return amount * multiplier;
 };
 
-const hashToken = (value: string): string => createHash('sha256').update(value).digest('hex');
 const genericLoginError = (): UnauthorizedException =>
   new UnauthorizedException('نام کاربری یا رمز عبور نادرست است.');
 const createCsrfToken = (): string => randomBytes(32).toString('base64url');
@@ -62,12 +62,19 @@ export class AuthService {
   ): Promise<TokenPair> {
     const username = usernameInput.trim().toLowerCase();
     const ip = request.ip ?? 'unknown';
-    const allowed = await this.redis.consumeRateLimit(
-      `pharmacy-mvp:login:${ip}:${username}`,
-      this.config.get('LOGIN_RATE_LIMIT'),
-      this.config.get('LOGIN_RATE_WINDOW_SECONDS'),
-    );
-    if (!allowed)
+    const [ipAllowed, identityAllowed] = await Promise.all([
+      this.redis.consumeRateLimit(
+        `pharmacy-mvp:login:ip:${ip}`,
+        this.config.get('LOGIN_RATE_LIMIT'),
+        this.config.get('LOGIN_RATE_WINDOW_SECONDS'),
+      ),
+      this.redis.consumeRateLimit(
+        `pharmacy-mvp:login:identity:${ip}:${username}`,
+        this.config.get('LOGIN_RATE_LIMIT'),
+        this.config.get('LOGIN_RATE_WINDOW_SECONDS'),
+      ),
+    ]);
+    if (!ipAllowed || !identityAllowed)
       throw new AppError('RATE_LIMITED', 'تعداد تلاش‌های ورود بیش از حد مجاز است.', 429);
 
     const user = await this.prisma.user.findUnique({
@@ -106,7 +113,7 @@ export class AuthService {
       return transaction.refreshSession.create({
         data: {
           userId: user.id,
-          refreshTokenHash: hashToken(refreshToken),
+          refreshTokenHash: hashOpaqueToken(refreshToken),
           deviceId: deviceId ?? null,
           platform,
           expiresAt,
@@ -135,7 +142,7 @@ export class AuthService {
   async refresh(rawToken: string | undefined): Promise<TokenPair> {
     if (!rawToken) throw genericLoginError();
     const session = await this.prisma.refreshSession.findUnique({
-      where: { refreshTokenHash: hashToken(rawToken) },
+      where: { refreshTokenHash: hashOpaqueToken(rawToken) },
       include: { user: true },
     });
     if (
@@ -160,7 +167,7 @@ export class AuthService {
       return transaction.refreshSession.create({
         data: {
           userId: session.userId,
-          refreshTokenHash: hashToken(nextRefreshToken),
+          refreshTokenHash: hashOpaqueToken(nextRefreshToken),
           deviceId: session.deviceId,
           platform: session.platform,
           expiresAt: nextExpiresAt,
@@ -183,7 +190,7 @@ export class AuthService {
   ): Promise<{ loggedOut: true }> {
     if (rawToken) {
       await this.prisma.refreshSession.updateMany({
-        where: { refreshTokenHash: hashToken(rawToken), revokedAt: null },
+        where: { refreshTokenHash: hashOpaqueToken(rawToken), revokedAt: null },
         data: { revokedAt: new Date() },
       });
     }
@@ -198,12 +205,15 @@ export class AuthService {
     return { loggedOut: true };
   }
 
-  async me(
-    userId: string,
-  ): Promise<
-    Pick<User, 'id' | 'firstName' | 'lastName' | 'username' | 'mobile' | 'role' | 'pharmacyId'>
+  async me(userId: string): Promise<
+    Pick<User, 'id' | 'firstName' | 'lastName' | 'username' | 'mobile' | 'role' | 'pharmacyId'> & {
+      pharmacyRegistrationStatus: RegistrationStatus | null;
+    }
   > {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { pharmacy: { select: { registrationStatus: true } } },
+    });
     if (!user || !user.isActive || user.deletedAt) throw genericLoginError();
     return {
       id: user.id,
@@ -213,6 +223,7 @@ export class AuthService {
       mobile: user.mobile,
       role: user.role,
       pharmacyId: user.pharmacyId,
+      pharmacyRegistrationStatus: user.pharmacy?.registrationStatus ?? null,
     };
   }
 
@@ -274,16 +285,18 @@ export class AuthService {
     request: RequestWithContext,
   ): Promise<void> {
     if (user) {
-      const failedLoginCount = user.failedLoginCount + 1;
       const lockThreshold = 5;
-      await this.prisma.user.update({
+      const updated = await this.prisma.user.update({
         where: { id: user.id },
         data: {
-          failedLoginCount,
-          lockedUntil:
-            failedLoginCount >= lockThreshold ? new Date(Date.now() + 15 * 60_000) : null,
+          failedLoginCount: { increment: 1 },
         },
       });
+      if (updated.failedLoginCount >= lockThreshold)
+        await this.prisma.user.updateMany({
+          where: { id: user.id, lockedUntil: null },
+          data: { lockedUntil: new Date(Date.now() + 15 * 60_000) },
+        });
       await this.audit.record({
         actorUserId: user.id,
         action: 'LOGIN_FAILED',

@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { openTrustedUrl } from '../../lib/external';
 import { statusLabel } from '../../lib/status';
 import {
   Button,
@@ -41,6 +42,22 @@ export const RegistrationDetailPage = () => {
         body: message ? JSON.stringify({ message }) : JSON.stringify({}),
       }),
     onSuccess: () => void query.refetch(),
+  });
+  const confirmReview = (action: 'approve' | 'reject' | 'request-changes') => {
+    const message =
+      action === 'approve'
+        ? 'آیا مدارک و اطلاعات این داروخانه تأیید شود؟'
+        : action === 'reject'
+          ? 'آیا ثبت‌نام این داروخانه با دلیل واردشده رد شود؟'
+          : 'آیا درخواست اصلاح برای این داروخانه ارسال شود؟';
+    if (window.confirm(message)) review.mutate(action);
+  };
+  const documentUrl = useMutation({
+    mutationFn: (documentId: string) =>
+      api.request<{ url: string }>(
+        `/admin/pharmacy-registrations/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}/url`,
+      ),
+    onSuccess: (data) => void openTrustedUrl(data.url),
   });
   if (query.isPending) return <Loading />;
   if (query.isError || !query.data) return <ErrorState onRetry={() => void query.refetch()} />;
@@ -85,6 +102,13 @@ export const RegistrationDetailPage = () => {
               status={doc.verificationStatus}
               label={statusLabel(doc.verificationStatus)}
             />
+            <Button
+              className="btn-secondary"
+              onClick={() => documentUrl.mutate(doc.id)}
+              loading={documentUrl.isPending}
+            >
+              مشاهده امن مدرک
+            </Button>
           </div>
         ))}
         {d.registrationStatus === 'PENDING_APPROVAL' ? (
@@ -94,19 +118,19 @@ export const RegistrationDetailPage = () => {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
             />
-            <Button onClick={() => review.mutate('approve')} loading={review.isPending}>
+            <Button onClick={() => confirmReview('approve')} loading={review.isPending}>
               تأیید
             </Button>
             <Button
               className="btn-secondary"
-              onClick={() => review.mutate('request-changes')}
+              onClick={() => confirmReview('request-changes')}
               loading={review.isPending}
             >
               درخواست اصلاح
             </Button>
             <Button
               className="btn-danger"
-              onClick={() => review.mutate('reject')}
+              onClick={() => confirmReview('reject')}
               loading={review.isPending}
             >
               رد

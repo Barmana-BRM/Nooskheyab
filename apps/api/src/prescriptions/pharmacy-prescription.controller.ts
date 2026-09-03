@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Roles } from '../common/auth.decorators';
 import { CurrentUser } from '../common/auth.decorators';
 import type { AuthenticatedUser, RequestWithContext } from '../common/request-context';
@@ -32,7 +42,7 @@ export class PharmacyPrescriptionController {
   @Get('prescriptions/:id')
   detail(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Req() request: RequestWithContext,
   ) {
     return this.prescriptions.getForPharmacy(id, user.pharmacyId as string, request);
@@ -41,7 +51,7 @@ export class PharmacyPrescriptionController {
   @Post('prescriptions/:id/view')
   view(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Req() request: RequestWithContext,
   ) {
     return this.prescriptions.getForPharmacy(id, user.pharmacyId as string, request);
@@ -50,7 +60,7 @@ export class PharmacyPrescriptionController {
   @Post('prescriptions/:id/respond')
   respond(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: RespondPrescriptionDto,
     @Req() request: RequestWithContext,
   ) {
@@ -63,7 +73,7 @@ export class PharmacyPrescriptionController {
   }
 
   @Post('notifications/:id/read')
-  markRead(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+  markRead(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.prescriptions.markNotificationRead(id, user.pharmacyId as string);
   }
 }

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import type { z } from 'zod';
 import { pharmacyRegistrationSchema } from '@pharmacy-mvp/validation';
 import { api } from '../../lib/api';
-import { Button, Card, Input, PageTitle, Textarea } from '../../components/ui';
+import { Button, Card, Input, PageTitle, PasswordInput, Textarea } from '../../components/ui';
 
 type RegistrationInput = z.infer<typeof pharmacyRegistrationSchema>;
 export const RegisterPage = () => {
@@ -67,9 +67,8 @@ export const RegisterPage = () => {
               {...form.register('username')}
               error={form.formState.errors.username?.message}
             />
-            <Input
+            <PasswordInput
               label="رمز عبور"
-              type="password"
               autoComplete="new-password"
               {...form.register('password')}
               error={form.formState.errors.password?.message}

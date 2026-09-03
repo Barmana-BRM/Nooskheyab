@@ -1,4 +1,12 @@
-import { IsBoolean, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class CreatePrescriptionDto {
   @IsString()
@@ -56,6 +64,22 @@ export class RespondPrescriptionDto {
 export class PrescriptionListQueryDto {
   @IsOptional()
   @IsString()
+  @IsIn([
+    'PENDING',
+    'UNDER_REVIEW',
+    'ACCEPTED',
+    'PARTIAL',
+    'REJECTED',
+    'SELECTED_PHARMACY',
+    'EXPIRED',
+    'COMPLETED',
+    'CANCELLED',
+    'SENT',
+    'VIEWED',
+    'RESPONDED',
+    'SELECTED',
+    'CLOSED',
+  ])
   @MaxLength(40)
   status?: string;
 
@@ -83,4 +107,9 @@ export class PrescriptionListQueryDto {
   @IsString()
   @MaxLength(30)
   dateTo?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['newest', 'oldest'])
+  sort?: string;
 }

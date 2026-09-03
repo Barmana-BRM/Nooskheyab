@@ -2,10 +2,17 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { type UserRole } from '@prisma/client';
 import argon2 from 'argon2';
-import { mobileSchema, normalizeDigits } from '@pharmacy-mvp/validation';
+import {
+  isCommonPassword,
+  mobileSchema,
+  normalizeDigits,
+  normalizeMobile,
+} from '@pharmacy-mvp/validation';
 import { AuditService } from '../common/audit.service';
 import { AppError } from '../common/errors';
+import { maskMobile } from '../common/masking';
 import { PrismaService } from '../common/prisma.service';
+import { shiftTehranDays, startOfTehranDay, tehranDateKey } from '../common/tehran-time';
 import type { RequestWithContext } from '../common/request-context';
 import { PharmacyService } from '../pharmacy/pharmacy.service';
 import { PrescriptionService } from '../prescriptions/prescription.service';
@@ -13,6 +20,7 @@ import type {
   CreateAdminPharmacyDto,
   CreateAdminUserDto,
   CreateInsuranceDto,
+  AuditLogQueryDto,
   UpdateInsuranceDto,
   UpdateUserDto,
 } from './admin.dto';
@@ -28,12 +36,9 @@ export class AdminService {
 
   async dashboard(): Promise<Record<string, unknown>> {
     const now = new Date();
-    const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
-    const week = new Date(today);
-    week.setDate(today.getDate() - 6);
-    const month = new Date(today);
-    month.setDate(today.getDate() - 29);
+    const today = startOfTehranDay(now);
+    const week = shiftTehranDays(today, -6);
+    const month = shiftTehranDays(today, -29);
     const [
       todayCount,
       weekCount,
@@ -82,7 +87,7 @@ export class AdminService {
       : 0;
     const dailyMap = new Map<string, number>();
     for (const row of dailyRows) {
-      const key = row.createdAt.toISOString().slice(0, 10);
+      const key = tehranDateKey(row.createdAt);
       dailyMap.set(key, (dailyMap.get(key) ?? 0) + 1);
     }
     return {
@@ -165,6 +170,7 @@ export class AdminService {
     });
     return rows.map((row) => ({
       ...row,
+      mobile: maskMobile(row.mobile),
       licenseExpirationDate: row.licenseExpirationDate.toISOString(),
       createdAt: row.createdAt.toISOString(),
     }));
@@ -179,7 +185,7 @@ export class AdminService {
     body: CreateAdminPharmacyDto,
     request: RequestWithContext,
   ): Promise<{ id: string; status: 'DRAFT' }> {
-    const mobile = mobileSchema.safeParse(body.mobile);
+    const mobile = mobileSchema.safeParse(normalizeMobile(body.mobile));
     const postalCode = normalizeDigits(body.postalCode).trim();
     if (!mobile.success || !/^\d{10}$/.test(postalCode)) {
       const fields: Record<string, string> = {};
@@ -223,7 +229,7 @@ export class AdminService {
     body: CreateAdminPharmacyDto,
     request: RequestWithContext,
   ): Promise<{ updated: true }> {
-    const mobile = mobileSchema.safeParse(body.mobile);
+    const mobile = mobileSchema.safeParse(normalizeMobile(body.mobile));
     const postalCode = normalizeDigits(body.postalCode).trim();
     if (!mobile.success || !/^\d{10}$/.test(postalCode)) {
       const fields: Record<string, string> = {};
@@ -310,6 +316,7 @@ export class AdminService {
     });
     return rows.map((row) => ({
       ...row,
+      mobile: maskMobile(row.mobile),
       lastLoginAt: row.lastLoginAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
     }));
@@ -333,8 +340,15 @@ export class AdminService {
       });
       if (!pharmacy) throw new AppError('NOT_FOUND', 'داروخانه پیدا نشد.', 404);
     }
-    const mobile = mobileSchema.safeParse(body.mobile);
-    if (!mobile.success) throw new AppError('VALIDATION_ERROR', 'شماره موبایل معتبر نیست.', 422, { mobile: 'شماره موبایل معتبر نیست.' });
+    const mobile = mobileSchema.safeParse(normalizeMobile(body.mobile));
+    if (!mobile.success)
+      throw new AppError('VALIDATION_ERROR', 'شماره موبایل معتبر نیست.', 422, {
+        mobile: 'شماره موبایل معتبر نیست.',
+      });
+    if (isCommonPassword(body.password))
+      throw new AppError('VALIDATION_ERROR', 'رمز عبور انتخاب‌شده رایج است.', 422, {
+        password: 'یک رمز عبور قوی‌تر انتخاب کنید.',
+      });
     const passwordHash = await argon2.hash(body.password, { type: argon2.argon2id });
     const user = await this.prisma.user.create({
       data: {
@@ -382,18 +396,28 @@ export class AdminService {
       throw new AppError('VALIDATION_ERROR', 'کاربر داروخانه را نمی‌توان مدیر سامانه کرد.', 422);
     if ((body.role === 'PHARMACY_ADMIN' || body.role === 'PHARMACY_USER') && !target.pharmacyId)
       throw new AppError('VALIDATION_ERROR', 'برای کاربر داروخانه باید داروخانه تعیین شود.', 422);
-    const mobile = body.mobile === undefined ? undefined : mobileSchema.safeParse(body.mobile);
+    const mobile =
+      body.mobile === undefined ? undefined : mobileSchema.safeParse(normalizeMobile(body.mobile));
     if (mobile && !mobile.success)
-      throw new AppError('VALIDATION_ERROR', 'شماره موبایل معتبر نیست.', 422, { mobile: 'شماره موبایل معتبر نیست.' });
-    await this.prisma.user.update({
-      where: { id },
-      data: {
-        ...(body.firstName !== undefined ? { firstName: body.firstName.trim() } : {}),
-        ...(body.lastName !== undefined ? { lastName: body.lastName.trim() } : {}),
-        ...(mobile?.success ? { mobile: mobile.data } : {}),
-        ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
-        ...(body.role !== undefined ? { role: body.role } : {}),
-      },
+      throw new AppError('VALIDATION_ERROR', 'شماره موبایل معتبر نیست.', 422, {
+        mobile: 'شماره موبایل معتبر نیست.',
+      });
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.user.update({
+        where: { id },
+        data: {
+          ...(body.firstName !== undefined ? { firstName: body.firstName.trim() } : {}),
+          ...(body.lastName !== undefined ? { lastName: body.lastName.trim() } : {}),
+          ...(mobile?.success ? { mobile: mobile.data } : {}),
+          ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
+          ...(body.role !== undefined ? { role: body.role } : {}),
+        },
+      });
+      if (body.isActive === false)
+        await transaction.refreshSession.updateMany({
+          where: { userId: id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
     });
     await this.audit.record({
       actorUserId: actor.id,
@@ -427,7 +451,7 @@ export class AdminService {
         403,
       );
     await this.prisma.$transaction([
-      this.prisma.user.update({ where: { id }, data: { isActive: false, deletedAt: new Date() } }),
+      this.prisma.user.update({ where: { id }, data: { isActive: false } }),
       this.prisma.refreshSession.updateMany({
         where: { userId: id, revokedAt: null },
         data: { revokedAt: new Date() },
@@ -446,14 +470,42 @@ export class AdminService {
     return { disabled: true };
   }
 
+  async enableUser(
+    actor: { id: string; role: UserRole },
+    id: string,
+    request: RequestWithContext,
+  ): Promise<{ enabled: true }> {
+    const target = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, role: true },
+    });
+    if (!target) throw new AppError('NOT_FOUND', 'کاربر پیدا نشد.', 404);
+    if (target.role === 'SUPER_ADMIN' && actor.role !== 'SUPER_ADMIN')
+      throw new AppError('FORBIDDEN', 'فعال کردن SUPER_ADMIN فقط برای SUPER_ADMIN مجاز است.', 403);
+    await this.prisma.user.update({ where: { id }, data: { isActive: true } });
+    await this.audit.record({
+      actorUserId: actor.id,
+      action: 'UPDATE_USER',
+      entityType: 'User',
+      entityId: id,
+      requestId: request.requestId,
+      ipAddress: request.ip ?? 'unknown',
+      userAgent: request.get('user-agent') ?? '',
+      metadata: { enabled: true },
+    });
+    return { enabled: true };
+  }
+
   async resetPassword(
     actor: { id: string; role: UserRole },
     id: string,
     password: string,
     request: RequestWithContext,
   ): Promise<{ reset: true }> {
-    if (password.length < 10)
-      throw new AppError('VALIDATION_ERROR', 'رمز عبور حداقل ۱۰ کاراکتر باشد.', 422);
+    if (password.length < 10 || password.length > 128 || isCommonPassword(password))
+      throw new AppError('VALIDATION_ERROR', 'رمز عبور معتبر نیست.', 422, {
+        password: 'رمز عبور باید ۱۰ تا ۱۲۸ کاراکتر و غیررایج باشد.',
+      });
     const target = await this.prisma.user.findFirst({
       where: { id, deletedAt: null },
       select: { role: true },
@@ -546,20 +598,45 @@ export class AdminService {
     return { updated: true };
   }
 
-  async auditLogs(query: {
-    action?: string;
-    entityType?: string;
-    requestId?: string;
-    page?: string;
-    limit?: string;
-  }): Promise<{ items: Array<Record<string, unknown>>; pagination: Record<string, number> }> {
+  async toggleInsurance(
+    actorId: string,
+    id: string,
+    request: RequestWithContext,
+  ): Promise<{ isActive: boolean }> {
+    const current = await this.prisma.insuranceProvider.findUnique({ where: { id } });
+    if (!current) throw new AppError('NOT_FOUND', 'بیمه پیدا نشد.', 404);
+    const updated = await this.prisma.insuranceProvider.update({
+      where: { id },
+      data: { isActive: !current.isActive },
+    });
+    await this.audit.record({
+      actorUserId: actorId,
+      action: 'UPDATE_INSURANCE',
+      entityType: 'InsuranceProvider',
+      entityId: id,
+      requestId: request.requestId,
+      ipAddress: request.ip ?? 'unknown',
+      userAgent: request.get('user-agent') ?? '',
+      metadata: { isActive: updated.isActive },
+    });
+    return { isActive: updated.isActive };
+  }
+
+  async auditLogs(
+    query: AuditLogQueryDto,
+  ): Promise<{ items: Array<Record<string, unknown>>; pagination: Record<string, number> }> {
     const page =
       Number.isInteger(Number(query.page)) && Number(query.page) > 0 ? Number(query.page) : 1;
     const limit = Math.min(Math.max(Number(query.limit) || 20, 1), 100);
+    const dateRange = this.parseAuditDateRange(query.dateFrom, query.dateTo);
     const where: Prisma.AuditLogWhereInput = {
       ...(query.action ? { action: query.action.slice(0, 80) } : {}),
       ...(query.entityType ? { entityType: query.entityType.slice(0, 80) } : {}),
       ...(query.requestId ? { requestId: query.requestId.slice(0, 100) } : {}),
+      ...(query.actor
+        ? { actor: { username: { contains: query.actor.trim(), mode: 'insensitive' } } }
+        : {}),
+      ...(dateRange ? { createdAt: dateRange } : {}),
     };
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.auditLog.count({ where }),
@@ -577,12 +654,47 @@ export class AdminService {
           requestId: true,
           createdAt: true,
           metadataJson: true,
+          actor: { select: { username: true } },
         },
       }),
     ]);
     return {
-      items: rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() })),
+      items: rows.map((row) => ({
+        ...row,
+        actor: row.actor?.username ?? null,
+        createdAt: row.createdAt.toISOString(),
+      })),
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     };
+  }
+
+  private parseAuditDateRange(
+    dateFrom: string | undefined,
+    dateTo: string | undefined,
+  ): { gte?: Date; lt?: Date } | undefined {
+    if (!dateFrom && !dateTo) return undefined;
+    const range: { gte?: Date; lt?: Date } = {};
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      if (Number.isNaN(from.getTime()))
+        throw new AppError('VALIDATION_ERROR', 'تاریخ شروع معتبر نیست.', 422, {
+          dateFrom: 'تاریخ شروع معتبر نیست.',
+        });
+      range.gte = from;
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      if (Number.isNaN(to.getTime()))
+        throw new AppError('VALIDATION_ERROR', 'تاریخ پایان معتبر نیست.', 422, {
+          dateTo: 'تاریخ پایان معتبر نیست.',
+        });
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateTo)) to.setUTCDate(to.getUTCDate() + 1);
+      range.lt = to;
+    }
+    if (range.gte && range.lt && range.gte >= range.lt)
+      throw new AppError('VALIDATION_ERROR', 'بازه تاریخ معتبر نیست.', 422, {
+        dateTo: 'تاریخ پایان باید بعد از تاریخ شروع باشد.',
+      });
+    return range;
   }
 }

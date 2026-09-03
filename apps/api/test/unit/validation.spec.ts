@@ -47,4 +47,19 @@ describe('shared validation', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it('rejects markup-like prescription tracking codes', () => {
+    const result = prescriptionCreateSchema.safeParse({
+      mobile: '09123456789',
+      nationalId: '0012446661',
+      prescriptionTrackingCode: '<script>alert(1)</script>',
+      baseInsuranceId: '00000000-0000-0000-0000-000000000000',
+      hasSupplementaryInsurance: false,
+      supplementaryInsuranceId: '',
+      supplementaryDescription: '',
+      patientDescription: '',
+      honeypot: '',
+    });
+    expect(result.success).toBe(false);
+  });
 });

@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { api } from '../../lib/api';
+import { openTrustedUrl } from '../../lib/external';
 import { Button, Card, ErrorState, Input, Loading, PageTitle, Textarea } from '../../components/ui';
 
 interface Profile {
@@ -62,9 +63,22 @@ export const ProfilePage = () => {
     },
     onSuccess: () => void query.refetch(),
   });
+  const documentUrl = useMutation({
+    mutationFn: (documentId: string) =>
+      api.request<{ url: string }>(`/pharmacy/documents/${encodeURIComponent(documentId)}/url`),
+    onSuccess: (result) => void openTrustedUrl(result.url),
+  });
+  const removeDocument = useMutation({
+    mutationFn: (documentId: string) =>
+      api.request(`/pharmacy/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
+    onSuccess: () => void query.refetch(),
+  });
   if (query.isPending) return <Loading />;
   if (query.isError || !query.data) return <ErrorState onRetry={() => void query.refetch()} />;
   const data = query.data;
+  const canEditDocuments = ['DRAFT', 'CHANGES_REQUESTED', 'REJECTED'].includes(
+    data.registrationStatus,
+  );
   return (
     <>
       <PageTitle
@@ -158,6 +172,25 @@ export const ProfilePage = () => {
                 <span className="muted">
                   {doc.documentType} · {doc.verificationStatus ?? 'PENDING'}
                 </span>
+                <Button
+                  className="btn-secondary"
+                  onClick={() => documentUrl.mutate(doc.id)}
+                  loading={documentUrl.isPending}
+                >
+                  مشاهده امن مدرک
+                </Button>
+                {canEditDocuments ? (
+                  <Button
+                    className="btn-danger"
+                    onClick={() => {
+                      if (window.confirm('آیا از حذف این مدرک مطمئن هستید؟'))
+                        removeDocument.mutate(doc.id);
+                    }}
+                    loading={removeDocument.isPending}
+                  >
+                    حذف مدرک
+                  </Button>
+                ) : null}
               </div>
             ))}
           </div>

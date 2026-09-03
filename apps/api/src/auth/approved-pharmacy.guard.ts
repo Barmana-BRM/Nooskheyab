@@ -12,7 +12,13 @@ export class ApprovedPharmacyGuard implements CanActivate {
     const pharmacyId = request.user?.pharmacyId;
     if (!pharmacyId) throw new ForbiddenException('حساب داروخانه معتبر نیست.');
     const pharmacy = await this.prisma.pharmacy.findFirst({
-      where: { id: pharmacyId, registrationStatus: 'APPROVED', isActive: true, deletedAt: null },
+      where: {
+        id: pharmacyId,
+        registrationStatus: 'APPROVED',
+        isActive: true,
+        deletedAt: null,
+        licenseExpirationDate: { gt: new Date() },
+      },
     });
     if (!pharmacy)
       throw new ForbiddenException('دسترسی عملیاتی تا تأیید و فعال‌شدن داروخانه ممکن نیست.');

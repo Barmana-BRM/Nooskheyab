@@ -22,6 +22,26 @@ if (Capacitor.isNativePlatform()) {
     }
     if (canGoBack && window.history.length > 1) window.history.back();
   });
+  void CapacitorApp.addListener('appUrlOpen', ({ url }) => {
+    try {
+      const parsed = new URL(url);
+      const isCustomScheme = parsed.protocol === 'pharmacy-mvp:';
+      const isTrustedHttps =
+        parsed.protocol === 'https:' && parsed.hostname === window.location.hostname;
+      if (!isCustomScheme && !isTrustedHttps) return;
+      const path = isCustomScheme
+        ? `/${parsed.host}${parsed.pathname}`.replace(/^\/+/, '/')
+        : parsed.pathname;
+      const match = path.match(/^\/request\/(RX-[A-Za-z0-9]{8})$/);
+      if (!match?.[1]) return;
+      const token = parsed.searchParams.get('token');
+      const next = `/request/${match[1]}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+      window.history.pushState({}, '', next);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    } catch {
+      // Invalid deep links are ignored without exposing their contents.
+    }
+  });
 }
 
 createRoot(document.getElementById('root')!).render(

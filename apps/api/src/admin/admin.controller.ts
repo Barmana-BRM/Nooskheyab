@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  ParseUUIDPipe,
   Put,
   Query,
   Req,
@@ -16,9 +17,11 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import {
   AdminDecisionDto,
+  AuditLogQueryDto,
   CreateAdminPharmacyDto,
   CreateAdminUserDto,
   CreateInsuranceDto,
+  ResetPasswordDto,
   UpdateInsuranceDto,
   UpdateUserDto,
 } from './admin.dto';
@@ -37,24 +40,24 @@ export class AdminController {
   @Get('prescriptions') prescriptions(@Query() query: PrescriptionListQueryDto) {
     return this.admin.prescriptionsList(query);
   }
-  @Get('prescriptions/:id') prescription(@Param('id') id: string) {
+  @Get('prescriptions/:id') prescription(@Param('id', ParseUUIDPipe) id: string) {
     return this.admin.prescriptionsDetail(id);
   }
   @Get('pharmacy-registrations') registrations(@Query('status') status?: string) {
     return this.admin.registrations(status);
   }
-  @Get('pharmacy-registrations/:id') registration(@Param('id') id: string) {
+  @Get('pharmacy-registrations/:id') registration(@Param('id', ParseUUIDPipe) id: string) {
     return this.admin.registrationDetail(id);
   }
   @Post('pharmacy-registrations/:id/approve') approve(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: RequestWithContext,
   ) {
     return this.admin.reviewRegistration(id, user.id, 'APPROVED', undefined, request);
   }
   @Post('pharmacy-registrations/:id/reject') reject(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: AdminDecisionDto,
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: RequestWithContext,
@@ -62,7 +65,7 @@ export class AdminController {
     return this.admin.reviewRegistration(id, user.id, 'REJECTED', body.message, request);
   }
   @Post('pharmacy-registrations/:id/request-changes') requestChanges(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: AdminDecisionDto,
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: RequestWithContext,
@@ -72,7 +75,7 @@ export class AdminController {
   @Get('pharmacies') pharmacies() {
     return this.admin.pharmacies();
   }
-  @Get('pharmacies/:id') pharmacy(@Param('id') id: string) {
+  @Get('pharmacies/:id') pharmacy(@Param('id', ParseUUIDPipe) id: string) {
     return this.admin.pharmacyDetail(id);
   }
   @Post('pharmacies') createPharmacy(
@@ -83,7 +86,7 @@ export class AdminController {
     return this.admin.createPharmacy(user.id, body, request);
   }
   @Put('pharmacies/:id') updatePharmacy(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: CreateAdminPharmacyDto,
     @Req() request: RequestWithContext,
@@ -91,27 +94,27 @@ export class AdminController {
     return this.admin.updatePharmacy(user.id, id, body, request);
   }
   @Get('pharmacy-registrations/:pharmacyId/documents/:documentId/url') documentUrl(
-    @Param('pharmacyId') pharmacyId: string,
-    @Param('documentId') documentId: string,
+    @Param('pharmacyId', ParseUUIDPipe) pharmacyId: string,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
   ) {
     return this.admin.documentUrl(pharmacyId, documentId);
   }
   @Post('pharmacies/:id/suspend') suspend(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: RequestWithContext,
   ) {
     return this.admin.suspendPharmacy(id, user.id, request);
   }
   @Post('pharmacies/:id/reactivate') reactivate(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: RequestWithContext,
   ) {
     return this.admin.reactivatePharmacy(id, user.id, request);
   }
   @Delete('pharmacies/:id') delete(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: RequestWithContext,
   ) {
@@ -128,7 +131,7 @@ export class AdminController {
     return this.admin.createUser(user, body, request);
   }
   @Put('users/:id') updateUser(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: UpdateUserDto,
     @Req() request: RequestWithContext,
@@ -136,19 +139,26 @@ export class AdminController {
     return this.admin.updateUser(user, id, body, request);
   }
   @Post('users/:id/disable') disableUser(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: RequestWithContext,
   ) {
     return this.admin.disableUser(user, id, request);
   }
-  @Post('users/:id/reset-password') resetPassword(
-    @Param('id') id: string,
-    @Body('password') password: string,
+  @Post('users/:id/enable') enableUser(
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: RequestWithContext,
   ) {
-    return this.admin.resetPassword(user, id, password, request);
+    return this.admin.enableUser(user, id, request);
+  }
+  @Post('users/:id/reset-password') resetPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: ResetPasswordDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: RequestWithContext,
+  ) {
+    return this.admin.resetPassword(user, id, body.password, request);
   }
   @Get('insurance') insurance() {
     return this.admin.insurance();
@@ -161,23 +171,21 @@ export class AdminController {
     return this.admin.createInsurance(user.id, body, request);
   }
   @Put('insurance/:id') updateInsurance(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: UpdateInsuranceDto,
     @Req() request: RequestWithContext,
   ) {
     return this.admin.updateInsurance(user.id, id, body, request);
   }
-  @Get('audit-logs') logs(
-    @Query()
-    query: {
-      action?: string;
-      entityType?: string;
-      requestId?: string;
-      page?: string;
-      limit?: string;
-    },
+  @Post('insurance/:id/toggle') toggleInsurance(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: RequestWithContext,
   ) {
+    return this.admin.toggleInsurance(user.id, id, request);
+  }
+  @Get('audit-logs') logs(@Query() query: AuditLogQueryDto) {
     return this.admin.auditLogs(query);
   }
 }

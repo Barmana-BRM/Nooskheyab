@@ -24,6 +24,7 @@ export const environmentSchema = z.object({
   LOGIN_RATE_LIMIT: z.coerce.number().int().positive().default(5),
   LOGIN_RATE_WINDOW_SECONDS: z.coerce.number().int().positive().default(900),
   S3_ENDPOINT: z.string().url(),
+  S3_PUBLIC_ENDPOINT: z.string().url().optional(),
   S3_REGION: z.string().default('us-east-1'),
   S3_BUCKET: z.string().min(3),
   S3_ACCESS_KEY: z.string().min(1),
@@ -41,6 +42,14 @@ export const environmentSchema = z.object({
 
 export type AppEnvironment = z.infer<typeof environmentSchema>;
 
+const isHttpsUrl = (value: string): boolean => {
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 export const parseEnvironment = (source: NodeJS.ProcessEnv): AppEnvironment => {
   const result = environmentSchema.safeParse(source);
   if (!result.success) {
@@ -49,5 +58,25 @@ export const parseEnvironment = (source: NodeJS.ProcessEnv): AppEnvironment => {
       .join('; ');
     throw new Error(`Invalid environment configuration: ${issues}`);
   }
-  return result.data;
+  const environment = result.data;
+  if (environment.NODE_ENV === 'production' || environment.APP_ENV === 'production') {
+    const corsOrigins = environment.CORS_ALLOWED_ORIGINS.split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+    const productionUrls = [
+      environment.WEB_APP_URL,
+      environment.API_PUBLIC_URL,
+      environment.S3_PUBLIC_ENDPOINT,
+    ];
+    if (
+      !environment.S3_PUBLIC_ENDPOINT ||
+      productionUrls.some((url) => !url || !isHttpsUrl(url)) ||
+      corsOrigins.some((origin) => !isHttpsUrl(origin))
+    ) {
+      throw new Error(
+        'Invalid environment configuration: production public endpoints and CORS origins must use HTTPS.',
+      );
+    }
+  }
+  return environment;
 };

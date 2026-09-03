@@ -5,14 +5,14 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import type { PatientPrescriptionSummary, PharmacyResponseView } from '@pharmacy-mvp/types';
 import { api } from '../../lib/api';
 import { formatJalaliDateTime, remainingLabel } from '../../lib/date';
+import { readPatientToken, writePatientToken } from '../../lib/patient-token';
 import { statusLabel } from '../../lib/status';
-import { Button, Card, Empty, ErrorState, Loading, StatusBadge } from '../../components/ui';
+import { Button, Card, Dialog, Empty, ErrorState, Loading, StatusBadge } from '../../components/ui';
 
 export const StatusPage = () => {
   const { publicId = '' } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const tokenKey = `pharmacy-mvp:patient-token:${publicId}`;
   const [token, setToken] = useState<string | null>(() =>
     new URLSearchParams(location.search).get('token'),
   );
@@ -20,13 +20,18 @@ export const StatusPage = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   useEffect(() => {
     const queryToken = new URLSearchParams(location.search).get('token');
-    const stored = queryToken ?? sessionStorage.getItem(tokenKey);
-    if (stored) {
+    let disposed = false;
+    void readPatientToken(publicId).then((storedToken) => {
+      const stored = queryToken ?? storedToken;
+      if (disposed || !stored) return;
       setToken(stored);
-      sessionStorage.setItem(tokenKey, stored);
+      void writePatientToken(publicId, stored);
       if (queryToken) window.history.replaceState({}, document.title, `/request/${publicId}`);
-    }
-  }, [location.search, publicId, tokenKey]);
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [location.search, publicId]);
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setSelected(null);
@@ -41,10 +46,14 @@ export const StatusPage = () => {
         headers: { 'X-Prescription-Token': token ?? '' },
       }),
     enabled: Boolean(publicId && token),
-    refetchInterval: (data) =>
-      data.state.data?.status === 'PENDING' || data.state.data?.status === 'UNDER_REVIEW'
+    refetchInterval: (currentQuery) =>
+      document.visibilityState === 'visible' &&
+      navigator.onLine &&
+      (currentQuery.state.data?.status === 'PENDING' ||
+        currentQuery.state.data?.status === 'UNDER_REVIEW')
         ? 30_000
         : false,
+    refetchIntervalInBackground: false,
   });
   const select = useMutation({
     mutationFn: (pharmacyId: string) =>
@@ -194,10 +203,9 @@ export const StatusPage = () => {
           <CheckCircle2 color="#15803d" /> دریافت نسخه تکمیل شد.
         </Card>
       ) : null}
-      {selected ? (
-        <div className="dialog-backdrop" role="presentation">
-          <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="select-title">
-            <h2 id="select-title">انتخاب داروخانه</h2>
+      <Dialog open={Boolean(selected)} title="انتخاب داروخانه" onClose={() => setSelected(null)}>
+        {selected ? (
+          <>
             <p>با انتخاب «{selected.pharmacyName}»، پاسخ سایر داروخانه‌ها بسته می‌شود.</p>
             <div className="detail-item">
               <strong>{selected.pharmacyName}</strong>
@@ -211,9 +219,9 @@ export const StatusPage = () => {
                 تأیید انتخاب
               </Button>
             </div>
-          </div>
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </Dialog>
     </main>
   );
 };

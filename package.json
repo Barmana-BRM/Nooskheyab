@@ -27,7 +27,7 @@
     "test:e2e": "npm --workspace apps/web run test:e2e",
     "db:generate": "npm --workspace apps/api run db:generate",
     "db:migrate": "npm --workspace apps/api run db:migrate",
-    "db:seed": "npm --workspace apps/api run db:seed",
+    "db:seed": "npm run build --workspace packages/validation && npm --workspace apps/api run db:seed",
     "db:studio": "npm --workspace apps/api run db:studio",
     "cap:sync": "npm run build:web && npm --workspace apps/web run cap:sync",
     "cap:android": "npm --workspace apps/web run cap:android",

@@ -1,12 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
+import { Capacitor } from '@capacitor/core';
 import { LockKeyhole, LogIn } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { loginSchema } from '@pharmacy-mvp/validation';
 import { api } from '../../lib/api';
 import { authStorage } from '../../lib/auth';
-import { Button, Card, Input, PageTitle } from '../../components/ui';
+import { Button, Card, Input, PageTitle, PasswordInput } from '../../components/ui';
 import type { z } from 'zod';
 
 type LoginInput = z.infer<typeof loginSchema>;
@@ -23,7 +24,7 @@ export const LoginPage = ({ kind }: { kind: 'pharmacy' | 'admin' }) => {
         '/auth/login',
         {
           method: 'POST',
-          headers: { 'X-Client-Platform': 'browser' },
+          headers: { 'X-Client-Platform': Capacitor.isNativePlatform() ? 'native' : 'browser' },
           body: JSON.stringify(value),
         },
       ),
@@ -31,7 +32,17 @@ export const LoginPage = ({ kind }: { kind: 'pharmacy' | 'admin' }) => {
       authStorage.setAccessToken(data.accessToken);
       authStorage.setCsrfToken(data.csrfToken ?? null);
       if (data.refreshToken) await authStorage.setRefreshToken(data.refreshToken);
-      navigate(kind === 'pharmacy' ? '/pharmacy/dashboard' : '/admin/dashboard', { replace: true });
+      const me = await api.request<{
+        role: string;
+        pharmacyRegistrationStatus: string | null;
+      }>('/auth/me');
+      const target =
+        kind === 'pharmacy' && me.pharmacyRegistrationStatus !== 'APPROVED'
+          ? '/pharmacy/registration-status'
+          : kind === 'pharmacy'
+            ? '/pharmacy/dashboard'
+            : '/admin/dashboard';
+      navigate(target, { replace: true });
     },
   });
   return (
@@ -48,9 +59,8 @@ export const LoginPage = ({ kind }: { kind: 'pharmacy' | 'admin' }) => {
             {...form.register('username')}
             error={form.formState.errors.username?.message}
           />
-          <Input
+          <PasswordInput
             label="رمز عبور"
-            type="password"
             autoComplete="current-password"
             {...form.register('password')}
             error={form.formState.errors.password?.message}

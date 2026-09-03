@@ -116,8 +116,8 @@ model Pharmacy {
   name                       String
   technicalManager           String
   technicalManagerIdentifier String?
-  pharmacyIdentifier         String?                       @unique
-  licenseNumber              String                        @unique
+  pharmacyIdentifier         String?
+  licenseNumber              String
   licenseExpirationDate      DateTime
   mobile                     String
   phone                      String
@@ -219,7 +219,6 @@ model PrescriptionPharmacyRequest {
 
   @@unique([prescriptionId, pharmacyId])
   @@index([pharmacyId, status, sentAt])
-  @@index([prescriptionId, pharmacyId])
 }
 
 model PharmacyResponse {
@@ -237,7 +236,6 @@ model PharmacyResponse {
   user               User               @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@unique([prescriptionId, pharmacyId])
-  @@index([prescriptionId, pharmacyId])
 }
 
 model InsuranceProvider {

@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  ParseUUIDPipe,
   Put,
   Req,
   UploadedFile,
@@ -12,7 +13,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { Roles, CurrentUser } from '../common/auth.decorators';
 import type { AuthenticatedUser, RequestWithContext } from '../common/request-context';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -31,7 +31,7 @@ export class PharmacyController {
 
   @Get('registration-status')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('PHARMACY_ADMIN')
+  @Roles('PHARMACY_ADMIN', 'PHARMACY_USER')
   status(@CurrentUser() user: AuthenticatedUser) {
     return this.pharmacy.status(user.pharmacyId as string);
   }
@@ -50,12 +50,7 @@ export class PharmacyController {
   @Post('documents')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('PHARMACY_ADMIN')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024, files: 1 },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file'))
   upload(
     @CurrentUser() user: AuthenticatedUser,
     @UploadedFile() file: Express.Multer.File | undefined,
@@ -76,7 +71,7 @@ export class PharmacyController {
   @Roles('PHARMACY_ADMIN')
   delete(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('documentId') documentId: string,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
     @Req() request: RequestWithContext,
   ) {
     return this.pharmacy.deleteDocument(user.pharmacyId as string, documentId, user.id, request);
@@ -85,7 +80,10 @@ export class PharmacyController {
   @Get('documents/:documentId/url')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('PHARMACY_ADMIN')
-  signedUrl(@CurrentUser() user: AuthenticatedUser, @Param('documentId') documentId: string) {
+  signedUrl(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+  ) {
     return this.pharmacy.signedDocumentUrl(user.pharmacyId as string, documentId);
   }
 

@@ -3,24 +3,26 @@ import { ConfigService } from '@nestjs/config';
 import type { Prisma } from '@prisma/client';
 import { type DocumentType, type RegistrationStatus } from '@prisma/client';
 import argon2 from 'argon2';
-import { Readable } from 'node:stream';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { createReadStream } from 'node:fs';
+import { open, unlink } from 'node:fs/promises';
+import { extname } from 'node:path';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
-import { mobileSchema, normalizeDigits, normalizeMobile, pharmacyRegistrationSchema } from '@pharmacy-mvp/validation';
+import {
+  isCommonPassword,
+  mobileSchema,
+  normalizeDigits,
+  normalizeMobile,
+  pharmacyRegistrationSchema,
+} from '@pharmacy-mvp/validation';
 import { AppError, conflict } from '../common/errors';
 import { AuditService } from '../common/audit.service';
+import { maskMobile } from '../common/masking';
 import { PrismaService } from '../common/prisma.service';
+import { RedisService } from '../common/redis.service';
 import { StorageService } from '../common/storage.service';
 import type { RequestWithContext } from '../common/request-context';
 import type { RegisterPharmacyDto, ReviewMessageDto, UpdatePharmacyDto } from './pharmacy.dto';
-
-const COMMON_PASSWORDS = new Set([
-  '1234567890',
-  'password123',
-  'qwertyuiop',
-  'abcdefghij',
-  '123456789a',
-]);
 
 @Injectable()
 export class PharmacyService {
@@ -29,17 +31,25 @@ export class PharmacyService {
     private readonly storage: StorageService,
     private readonly config: ConfigService<AppEnvironment, true>,
     private readonly audit: AuditService,
+    private readonly redis: RedisService,
   ) {}
 
   async register(
     body: RegisterPharmacyDto,
     request: RequestWithContext,
   ): Promise<{ pharmacyId: string; status: 'DRAFT' }> {
+    const registrationAllowed = await this.redis.consumeRateLimit(
+      `pharmacy-mvp:pharmacy-register:${request.ip ?? 'unknown'}`,
+      3,
+      900,
+    );
+    if (!registrationAllowed)
+      throw new AppError('RATE_LIMITED', 'تعداد تلاش‌های ثبت‌نام بیش از حد مجاز است.', 429);
     const parsed = pharmacyRegistrationSchema.safeParse({
       ...body,
       mobile: normalizeMobile(body.mobile),
     });
-    if (!parsed.success || COMMON_PASSWORDS.has(body.password.toLowerCase()))
+    if (!parsed.success || isCommonPassword(body.password))
       throw new AppError('VALIDATION_ERROR', 'اطلاعات ثبت‌نام معتبر نیست.', 422, {
         form: 'اطلاعات ثبت‌نام یا رمز عبور معتبر نیست.',
       });
@@ -111,26 +121,63 @@ export class PharmacyService {
     if (!current) throw new AppError('NOT_FOUND', 'اطلاعات داروخانه پیدا نشد.', 404);
     if (current.registrationStatus === 'PENDING_APPROVAL')
       throw conflict('REGISTRATION_LOCKED', 'درخواست در حال بررسی است و فعلاً قابل ویرایش نیست.');
-    const normalizedMobile = body.mobile === undefined ? undefined : mobileSchema.safeParse(body.mobile);
+    const normalizedMobile =
+      body.mobile === undefined ? undefined : mobileSchema.safeParse(normalizeMobile(body.mobile));
     if (normalizedMobile && !normalizedMobile.success)
-      throw new AppError('VALIDATION_ERROR', 'شماره موبایل معتبر نیست.', 422, { mobile: 'شماره موبایل معتبر نیست.' });
-    const normalizedPostalCode = body.postalCode === undefined ? undefined : normalizeDigits(body.postalCode).trim();
+      throw new AppError('VALIDATION_ERROR', 'شماره موبایل معتبر نیست.', 422, {
+        mobile: 'شماره موبایل معتبر نیست.',
+      });
+    const normalizedPostalCode =
+      body.postalCode === undefined ? undefined : normalizeDigits(body.postalCode).trim();
     if (normalizedPostalCode !== undefined && !/^\d{10}$/.test(normalizedPostalCode))
-      throw new AppError('VALIDATION_ERROR', 'کد پستی معتبر نیست.', 422, { postalCode: 'کد پستی باید ۱۰ رقم باشد.' });
-    if (body.licenseExpirationDate !== undefined && Number.isNaN(new Date(body.licenseExpirationDate).getTime()))
-      throw new AppError('VALIDATION_ERROR', 'تاریخ اعتبار مجوز معتبر نیست.', 422, { licenseExpirationDate: 'تاریخ اعتبار مجوز معتبر نیست.' });
+      throw new AppError('VALIDATION_ERROR', 'کد پستی معتبر نیست.', 422, {
+        postalCode: 'کد پستی باید ۱۰ رقم باشد.',
+      });
+    if (
+      body.licenseExpirationDate !== undefined &&
+      Number.isNaN(new Date(body.licenseExpirationDate).getTime())
+    )
+      throw new AppError('VALIDATION_ERROR', 'تاریخ اعتبار مجوز معتبر نیست.', 422, {
+        licenseExpirationDate: 'تاریخ اعتبار مجوز معتبر نیست.',
+      });
+    const normalizedTechnicalManagerIdentifier =
+      body.technicalManagerIdentifier === undefined
+        ? undefined
+        : body.technicalManagerIdentifier.trim() || null;
+    const normalizedPharmacyIdentifier =
+      body.pharmacyIdentifier === undefined ? undefined : body.pharmacyIdentifier.trim() || null;
+    const normalizedLicenseNumber =
+      body.licenseNumber === undefined ? undefined : body.licenseNumber.trim();
+    const sensitiveChanged =
+      current.registrationStatus === 'APPROVED' &&
+      ((body.pharmacyName !== undefined && body.pharmacyName.trim() !== current.name) ||
+        (body.technicalManager !== undefined &&
+          body.technicalManager.trim() !== current.technicalManager) ||
+        (normalizedTechnicalManagerIdentifier !== undefined &&
+          normalizedTechnicalManagerIdentifier !== current.technicalManagerIdentifier) ||
+        (normalizedPharmacyIdentifier !== undefined &&
+          normalizedPharmacyIdentifier !== current.pharmacyIdentifier) ||
+        (normalizedLicenseNumber !== undefined &&
+          normalizedLicenseNumber !== current.licenseNumber) ||
+        (body.licenseExpirationDate !== undefined &&
+          new Date(body.licenseExpirationDate).getTime() !==
+            current.licenseExpirationDate.getTime()) ||
+        (body.province !== undefined && body.province.trim() !== current.province) ||
+        (body.city !== undefined && body.city.trim() !== current.city) ||
+        (body.address !== undefined && body.address.trim() !== current.address) ||
+        (normalizedPostalCode !== undefined && normalizedPostalCode !== current.postalCode));
     const data: Prisma.PharmacyUpdateInput = {
       ...(body.pharmacyName !== undefined ? { name: body.pharmacyName.trim() } : {}),
       ...(body.technicalManager !== undefined
         ? { technicalManager: body.technicalManager.trim() }
         : {}),
       ...(body.technicalManagerIdentifier !== undefined
-        ? { technicalManagerIdentifier: body.technicalManagerIdentifier.trim() || null }
+        ? { technicalManagerIdentifier: normalizedTechnicalManagerIdentifier }
         : {}),
       ...(body.pharmacyIdentifier !== undefined
-        ? { pharmacyIdentifier: body.pharmacyIdentifier.trim() || null }
+        ? { pharmacyIdentifier: normalizedPharmacyIdentifier }
         : {}),
-      ...(body.licenseNumber !== undefined ? { licenseNumber: body.licenseNumber.trim() } : {}),
+      ...(body.licenseNumber !== undefined ? { licenseNumber: normalizedLicenseNumber } : {}),
       ...(body.licenseExpirationDate !== undefined
         ? { licenseExpirationDate: new Date(body.licenseExpirationDate) }
         : {}),
@@ -141,6 +188,15 @@ export class PharmacyService {
       ...(body.address !== undefined ? { address: body.address.trim() } : {}),
       ...(normalizedPostalCode !== undefined ? { postalCode: normalizedPostalCode } : {}),
       ...(body.workingHours !== undefined ? { workingHours: body.workingHours.trim() } : {}),
+      ...(sensitiveChanged
+        ? {
+            registrationStatus: 'CHANGES_REQUESTED',
+            isActive: false,
+            reviewMessage: 'اطلاعات کلیدی تغییر کرده و نیازمند بررسی مجدد است.',
+            approvedBy: null,
+            approvedAt: null,
+          }
+        : {}),
       ...(body.firstName !== undefined || body.lastName !== undefined
         ? {
             users: {
@@ -164,7 +220,7 @@ export class PharmacyService {
       requestId: request.requestId,
       ipAddress: request.ip ?? 'unknown',
       userAgent: request.get('user-agent') ?? '',
-      metadata: { pharmacyId },
+      metadata: { pharmacyId, reviewRequired: sensitiveChanged },
     });
     return this.status(updated.id);
   }
@@ -247,68 +303,100 @@ export class PharmacyService {
     request: RequestWithContext,
   ): Promise<Record<string, unknown>> {
     if (!file) throw new BadRequestException('فایل مدرک ارسال نشده است.');
-    const maxBytes = this.config.get('UPLOAD_MAX_BYTES');
-    if (file.size > maxBytes)
-      throw new AppError('FILE_TOO_LARGE', 'حجم فایل بیش از حد مجاز است.', 413);
-    const detected = this.detectMime(file.buffer);
-    if (
-      !detected ||
-      detected !== file.mimetype ||
-      !['image/jpeg', 'image/png', 'application/pdf'].includes(detected)
-    )
-      throw new AppError('INVALID_FILE', 'فرمت فایل مجاز نیست.', 422);
-    const pharmacy = await this.prisma.pharmacy.findFirst({
-      where: { id: pharmacyId, deletedAt: null },
-      select: { registrationStatus: true },
-    });
-    if (
-      !pharmacy ||
-      !['DRAFT', 'CHANGES_REQUESTED', 'REJECTED'].includes(pharmacy.registrationStatus)
-    )
-      throw conflict('DOCUMENT_UPLOAD_LOCKED', 'مدارک در این وضعیت قابل تغییر نیستند.');
-    const documentId = randomUUID();
-    const storageKey = this.storage.buildObjectKey(pharmacyId, documentId);
     try {
-      await this.storage.upload(storageKey, {
-        stream: Readable.from(file.buffer),
-        originalName: file.originalname,
-        mimeType: detected,
-        fileSize: file.size,
-        sha256: StorageService.sha256(file.buffer),
+      const uploadAllowed = await this.redis.consumeRateLimit(
+        `pharmacy-mvp:document-upload:${pharmacyId}:${request.ip ?? 'unknown'}`,
+        20,
+        900,
+      );
+      if (!uploadAllowed)
+        throw new AppError('RATE_LIMITED', 'تعداد بارگذاری فایل بیش از حد مجاز است.', 429);
+      const maxBytes = this.config.get('UPLOAD_MAX_BYTES');
+      if (file.size > maxBytes)
+        throw new AppError('FILE_TOO_LARGE', 'حجم فایل بیش از حد مجاز است.', 413);
+      const pharmacy = await this.prisma.pharmacy.findFirst({
+        where: { id: pharmacyId, deletedAt: null },
+        select: { registrationStatus: true },
       });
-      const document = await this.prisma.pharmacyDocument.create({
-        data: {
-          id: documentId,
-          pharmacyId,
-          documentType,
-          storageKey,
-          originalName: file.originalname.slice(0, 180),
+      if (
+        !pharmacy ||
+        !['DRAFT', 'CHANGES_REQUESTED', 'REJECTED'].includes(pharmacy.registrationStatus)
+      )
+        throw conflict('DOCUMENT_UPLOAD_LOCKED', 'مدارک در این وضعیت قابل تغییر نیستند.');
+      const documentId = randomUUID();
+      const storageKey = this.storage.buildObjectKey(pharmacyId, documentId);
+      const safeOriginalName =
+        file.originalname
+          .split(/[\\/]/)
+          .pop()
+          ?.split('')
+          .map((character) => {
+            const code = character.charCodeAt(0);
+            return code <= 31 || code === 127 ? '_' : character;
+          })
+          .join('')
+          .slice(0, 180) || 'document';
+      try {
+        const magicBytes = await this.readMagicBytes(file.path);
+        const detected = this.detectMime(magicBytes);
+        const extension = extname(safeOriginalName).toLowerCase();
+        const extensionMatches =
+          (detected === 'image/jpeg' && ['.jpg', '.jpeg'].includes(extension)) ||
+          (detected === 'image/png' && extension === '.png') ||
+          (detected === 'application/pdf' && extension === '.pdf');
+        if (
+          !detected ||
+          detected !== file.mimetype ||
+          !['image/jpeg', 'image/png', 'application/pdf'].includes(detected) ||
+          !extensionMatches
+        )
+          throw new AppError('INVALID_FILE', 'فرمت فایل مجاز نیست.', 422);
+        const sha256 = await this.sha256File(file.path);
+        await this.storage.upload(storageKey, {
+          stream: createReadStream(file.path),
           mimeType: detected,
           fileSize: file.size,
-          sha256: StorageService.sha256(file.buffer),
-          uploadedBy: userId,
-        },
-      });
-      await this.audit.record({
-        actorUserId: userId,
-        action: 'UPLOAD_DOCUMENT',
-        entityType: 'PharmacyDocument',
-        entityId: document.id,
-        requestId: request.requestId,
-        ipAddress: request.ip ?? 'unknown',
-        userAgent: request.get('user-agent') ?? '',
-        metadata: { pharmacyId, documentType },
-      });
-      return {
-        id: document.id,
-        documentType: document.documentType,
-        originalName: document.originalName,
-        fileSize: document.fileSize,
-        verificationStatus: document.verificationStatus,
-      };
-    } catch (error) {
-      await this.storage.delete(storageKey).catch(() => undefined);
-      throw error;
+          sha256,
+        });
+        const document = await this.prisma.pharmacyDocument.create({
+          data: {
+            id: documentId,
+            pharmacyId,
+            documentType,
+            storageKey,
+            originalName: safeOriginalName,
+            mimeType: detected,
+            fileSize: file.size,
+            sha256,
+            uploadedBy: userId,
+          },
+        });
+        await this.audit.record({
+          actorUserId: userId,
+          action: 'UPLOAD_DOCUMENT',
+          entityType: 'PharmacyDocument',
+          entityId: document.id,
+          requestId: request.requestId,
+          ipAddress: request.ip ?? 'unknown',
+          userAgent: request.get('user-agent') ?? '',
+          metadata: { pharmacyId, documentType },
+        });
+        return {
+          id: document.id,
+          documentType: document.documentType,
+          originalName: document.originalName,
+          fileSize: document.fileSize,
+          verificationStatus: document.verificationStatus,
+        };
+      } catch (error) {
+        await this.prisma.pharmacyDocument
+          .delete({ where: { id: documentId } })
+          .catch(() => undefined);
+        await this.storage.delete(storageKey).catch(() => undefined);
+        throw error;
+      }
+    } finally {
+      await unlink(file.path).catch(() => undefined);
     }
   }
 
@@ -390,7 +478,7 @@ export class PharmacyService {
       take: 100,
       include: { documents: true, reviewHistory: true },
     });
-    return rows.map((row) => this.mapRegistration(row));
+    return rows.map((row) => this.mapRegistration(row, true));
   }
 
   async adminReview(
@@ -413,11 +501,12 @@ export class PharmacyService {
       });
     if (
       action === 'APPROVED' &&
-      !pharmacy.documents.some(
-        (document) =>
-          document.documentType === 'PHARMACY_LICENSE' &&
-          document.verificationStatus !== 'REJECTED',
-      )
+      (pharmacy.licenseExpirationDate <= new Date() ||
+        !pharmacy.documents.some(
+          (document) =>
+            document.documentType === 'PHARMACY_LICENSE' &&
+            document.verificationStatus !== 'REJECTED',
+        ))
     )
       throw new AppError('REGISTRATION_INCOMPLETE', 'مدرک مجوز معتبر نیست.', 422);
     const nextStatus: RegistrationStatus =
@@ -433,6 +522,14 @@ export class PharmacyService {
           approvedAt: action === 'APPROVED' ? new Date() : null,
         },
       }),
+      ...(action === 'APPROVED'
+        ? [
+            this.prisma.pharmacyDocument.updateMany({
+              where: { pharmacyId, verificationStatus: 'PENDING' },
+              data: { verificationStatus: 'APPROVED' },
+            }),
+          ]
+        : []),
       this.prisma.pharmacyReviewHistory.create({
         data: { pharmacyId, action, adminUserId, message: body?.message?.trim() || null },
       }),
@@ -467,6 +564,8 @@ export class PharmacyService {
     if (!pharmacy) throw new AppError('NOT_FOUND', 'داروخانه پیدا نشد.', 404);
     if (action === 'REACTIVATED' && pharmacy.registrationStatus !== 'SUSPENDED')
       throw conflict('INVALID_PHARMACY_TRANSITION', 'داروخانه معلق نیست.');
+    if (action === 'REACTIVATED' && pharmacy.licenseExpirationDate <= new Date())
+      throw new AppError('REGISTRATION_INCOMPLETE', 'مجوز داروخانه منقضی شده است.', 422);
     if (action === 'SUSPENDED' && pharmacy.registrationStatus !== 'APPROVED')
       throw conflict('INVALID_PHARMACY_TRANSITION', 'فقط داروخانه تأییدشده قابل تعلیق است.');
     const status: RegistrationStatus = action === 'SUSPENDED' ? 'SUSPENDED' : 'APPROVED';
@@ -498,8 +597,26 @@ export class PharmacyService {
     return null;
   }
 
+  private async readMagicBytes(path: string): Promise<Buffer> {
+    const handle = await open(path, 'r');
+    try {
+      const header = Buffer.alloc(8);
+      const { bytesRead } = await handle.read(header, 0, header.length, 0);
+      return header.subarray(0, bytesRead);
+    } finally {
+      await handle.close();
+    }
+  }
+
+  private async sha256File(path: string): Promise<string> {
+    const hash = createHash('sha256');
+    for await (const chunk of createReadStream(path)) hash.update(chunk);
+    return hash.digest('hex');
+  }
+
   private mapRegistration(
     pharmacy: Prisma.PharmacyGetPayload<{ include: { documents: true; reviewHistory: true } }>,
+    maskSensitiveValues = false,
   ): Record<string, unknown> {
     return {
       id: pharmacy.id,
@@ -509,7 +626,7 @@ export class PharmacyService {
       pharmacyIdentifier: pharmacy.pharmacyIdentifier,
       licenseNumber: pharmacy.licenseNumber,
       licenseExpirationDate: pharmacy.licenseExpirationDate.toISOString(),
-      mobile: pharmacy.mobile,
+      mobile: maskSensitiveValues ? maskMobile(pharmacy.mobile) : pharmacy.mobile,
       phone: pharmacy.phone,
       province: pharmacy.province,
       city: pharmacy.city,

@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadBucketCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -13,7 +14,6 @@ import type { AppEnvironment } from '@pharmacy-mvp/config';
 
 export interface SafeUpload {
   stream: Readable;
-  originalName: string;
   mimeType: string;
   fileSize: number;
   sha256: string;
@@ -22,21 +22,28 @@ export interface SafeUpload {
 @Injectable()
 export class StorageService {
   private readonly client: S3Client;
+  private readonly signingClient: S3Client;
   private readonly bucket: string;
   private readonly signedUrlTtlSeconds: number;
 
   constructor(config: ConfigService<AppEnvironment, true>) {
     this.bucket = config.get('S3_BUCKET');
     this.signedUrlTtlSeconds = config.get('S3_SIGNED_URL_TTL_SECONDS');
-    this.client = new S3Client({
+    const clientOptions = {
       region: config.get('S3_REGION'),
-      endpoint: config.get('S3_ENDPOINT'),
       forcePathStyle: config.get('S3_FORCE_PATH_STYLE'),
       credentials: {
         accessKeyId: config.get('S3_ACCESS_KEY'),
         secretAccessKey: config.get('S3_SECRET_KEY'),
       },
-    });
+    };
+    const internalEndpoint = config.get('S3_ENDPOINT');
+    const publicEndpoint = config.get('S3_PUBLIC_ENDPOINT') ?? internalEndpoint;
+    this.client = new S3Client({ ...clientOptions, endpoint: internalEndpoint });
+    this.signingClient =
+      publicEndpoint === internalEndpoint
+        ? this.client
+        : new S3Client({ ...clientOptions, endpoint: publicEndpoint });
   }
 
   buildObjectKey(pharmacyId: string, documentId: string): string {
@@ -53,7 +60,6 @@ export class StorageService {
         ContentLength: upload.fileSize,
         Metadata: {
           sha256: upload.sha256,
-          originalname: upload.originalName.slice(0, 180),
         },
         ContentDisposition: 'attachment',
       }),
@@ -64,9 +70,13 @@ export class StorageService {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
 
+  async healthcheck(): Promise<void> {
+    await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+  }
+
   async createSignedReadUrl(key: string): Promise<string> {
     return getSignedUrl(
-      this.client,
+      this.signingClient,
       new GetObjectCommand({
         Bucket: this.bucket,
         Key: key,
@@ -74,9 +84,5 @@ export class StorageService {
       }),
       { expiresIn: this.signedUrlTtlSeconds },
     );
-  }
-
-  static sha256(buffer: Buffer): string {
-    return createHash('sha256').update(buffer).digest('hex');
   }
 }

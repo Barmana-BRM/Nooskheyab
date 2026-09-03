@@ -61,7 +61,13 @@ export const RegistrationsPage = () => {
                     بررسی جزئیات
                   </Link>
                   {row.registrationStatus === 'PENDING_APPROVAL' ? (
-                    <Button onClick={() => approve.mutate(row.id)} loading={approve.isPending}>
+                    <Button
+                      onClick={() => {
+                        if (window.confirm('آیا مدارک و اطلاعات این داروخانه تأیید شود؟'))
+                          approve.mutate(row.id);
+                      }}
+                      loading={approve.isPending}
+                    >
                       تأیید
                     </Button>
                   ) : null}

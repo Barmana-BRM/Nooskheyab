@@ -97,7 +97,7 @@ export const RequestsPage = ({ history = false }: { history?: boolean }) => {
                 </tbody>
               </table>
             </div>
-            <div className="mobile-row-list">
+            <div className="mobile-row-list mobile-only-list">
               {query.data.items.map((row) => (
                 <div className="mobile-row" key={row.id}>
                   <div className="button-row" style={{ justifyContent: 'space-between' }}>

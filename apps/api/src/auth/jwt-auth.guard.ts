@@ -33,7 +33,16 @@ export class JwtAuthGuard implements CanActivate {
         secret: this.config.get('JWT_ACCESS_SECRET'),
       });
       const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-      if (!user || !user.isActive || user.deletedAt) throw new Error('inactive');
+      const session = await this.prisma.refreshSession.findFirst({
+        where: {
+          id: payload.sessionId,
+          userId: payload.sub,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        select: { id: true },
+      });
+      if (!user || !session || !user.isActive || user.deletedAt) throw new Error('inactive');
       request.user = {
         id: user.id,
         role: user.role,

@@ -46,6 +46,10 @@ export class ApiClient {
     headers.set('Accept', 'application/json');
     if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type'))
       headers.set('Content-Type', 'application/json');
+    const method = (init.method ?? 'GET').toUpperCase();
+    const csrfToken = this.authStorage.getCsrfToken?.();
+    if (csrfToken && !['GET', 'HEAD', 'OPTIONS'].includes(method) && !headers.has('X-CSRF-Token'))
+      headers.set('X-CSRF-Token', csrfToken);
     const accessToken = this.authStorage.getAccessToken();
     if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
 
@@ -54,7 +58,13 @@ export class ApiClient {
       headers,
       credentials: 'include',
     });
-    if (response.status === 401 && allowRefresh && !path.includes('/auth/')) {
+    const isNonRefreshableAuthPath = [
+      '/auth/login',
+      '/auth/refresh',
+      '/auth/logout',
+      '/auth/csrf',
+    ].includes(path);
+    if (response.status === 401 && allowRefresh && !isNonRefreshableAuthPath) {
       const refreshed = await this.refresh();
       if (refreshed) return this.request<T>(path, init, false);
     }

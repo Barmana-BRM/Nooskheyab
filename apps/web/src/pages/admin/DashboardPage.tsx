@@ -18,7 +18,9 @@ export const AdminDashboardPage = () => {
   const query = useQuery({
     queryKey: ['admin', 'dashboard'],
     queryFn: () => api.request<Dashboard>('/admin/dashboard'),
-    refetchInterval: 60_000,
+    refetchInterval: () =>
+      document.visibilityState === 'visible' && navigator.onLine ? 60_000 : false,
+    refetchIntervalInBackground: false,
   });
   if (query.isPending) return <Loading />;
   if (query.isError) return <ErrorState onRetry={() => void query.refetch()} />;

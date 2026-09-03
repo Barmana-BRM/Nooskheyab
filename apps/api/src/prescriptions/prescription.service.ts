@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
 import {
+  Prisma,
   type AvailabilityStatus,
   type PrescriptionRequestStatus,
   type PrescriptionStatus,
 } from '@prisma/client';
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { AppEnvironment } from '@pharmacy-mvp/config';
 import { ConfigService } from '@nestjs/config';
 import { prescriptionCreateSchema, pharmacyResponseSchema } from '@pharmacy-mvp/validation';
@@ -16,6 +16,8 @@ import { maskMobile, maskNationalId } from '../common/masking';
 import { PrismaService } from '../common/prisma.service';
 import { RedisService } from '../common/redis.service';
 import type { RequestWithContext } from '../common/request-context';
+import { startOfTehranDay } from '../common/tehran-time';
+import { hashOpaqueToken, verifyOpaqueToken } from '../common/token-hash';
 import { InsuranceService } from '../insurance/insurance.service';
 import { aggregatePrescriptionStatus } from './status-aggregator';
 import type {
@@ -24,9 +26,10 @@ import type {
   RespondPrescriptionDto,
 } from './prescription.dto';
 
-const hashAccessToken = (token: string): string => {
-  return createHash('sha256').update(token).digest('hex');
-};
+const PUBLIC_ID_PATTERN = /^RX-[A-Z0-9]{8}$/;
+const ACCESS_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+const isValidPublicId = (value: string): boolean => PUBLIC_ID_PATTERN.test(value);
 
 export interface PublicPrescriptionData {
   publicId: string;
@@ -34,6 +37,11 @@ export interface PublicPrescriptionData {
   status: PrescriptionStatus;
   statusUrl: string;
   expiresAt: string;
+}
+
+interface PrescriptionIdempotencyRecord {
+  fingerprint: string;
+  response: PublicPrescriptionData;
 }
 
 @Injectable()
@@ -55,11 +63,35 @@ export class PrescriptionService {
       idempotencyKey && /^[A-Za-z0-9._:-]{8,128}$/.test(idempotencyKey),
     );
     const idempotencyCacheKey = validIdempotencyKey
-      ? `pharmacy-mvp:idempotency:prescription:${idempotencyKey}`
+      ? `pharmacy-mvp:idempotency:prescription:${createHash('sha256')
+          .update(`${request.ip ?? 'unknown'}:${idempotencyKey}`)
+          .digest('hex')}`
       : null;
+    const requestFingerprint = createHash('sha256')
+      .update(
+        JSON.stringify({
+          mobile: body.mobile,
+          nationalId: body.nationalId,
+          prescriptionTrackingCode: body.prescriptionTrackingCode,
+          baseInsuranceId: body.baseInsuranceId,
+          hasSupplementaryInsurance: body.hasSupplementaryInsurance,
+          supplementaryInsuranceId: body.supplementaryInsuranceId ?? null,
+          supplementaryDescription: body.supplementaryDescription ?? null,
+          patientDescription: body.patientDescription ?? null,
+          honeypot: body.honeypot ?? '',
+        }),
+      )
+      .digest('hex');
     if (idempotencyCacheKey) {
-      const cached = await this.redis.getJson<PublicPrescriptionData>(idempotencyCacheKey);
-      if (cached) return cached;
+      const cached = await this.redis.getJson<PrescriptionIdempotencyRecord>(idempotencyCacheKey);
+      if (cached) {
+        if (cached.fingerprint !== requestFingerprint)
+          throw conflict(
+            'IDEMPOTENCY_KEY_REUSE',
+            'کلید تکرارنشدن برای اطلاعات دیگری قبلاً استفاده شده است.',
+          );
+        return cached.response;
+      }
     }
     const createAllowed = await this.redis.consumeRateLimit(
       `pharmacy-mvp:prescription-create:${request.ip ?? 'unknown'}`,
@@ -103,12 +135,25 @@ export class PrescriptionService {
     }
 
     let idempotencyLockKey: string | null = null;
+    let idempotencyLockValue: string | null = null;
     if (idempotencyCacheKey && this.redis.client.status === 'ready') {
       idempotencyLockKey = `${idempotencyCacheKey}:lock`;
-      const acquired = await this.redis.setIfNotExists(idempotencyLockKey, randomUUID(), 30);
+      idempotencyLockValue = randomUUID();
+      const acquired = await this.redis.setIfNotExists(
+        idempotencyLockKey,
+        idempotencyLockValue,
+        30,
+      );
       if (!acquired) {
-        const cached = await this.redis.getJson<PublicPrescriptionData>(idempotencyCacheKey);
-        if (cached) return cached;
+        const cached = await this.redis.getJson<PrescriptionIdempotencyRecord>(idempotencyCacheKey);
+        if (cached) {
+          if (cached.fingerprint !== requestFingerprint)
+            throw conflict(
+              'IDEMPOTENCY_KEY_REUSE',
+              'کلید تکرارنشدن برای اطلاعات دیگری قبلاً استفاده شده است.',
+            );
+          return cached.response;
+        }
         throw conflict('IDEMPOTENCY_IN_PROGRESS', 'درخواست مشابهی در حال پردازش است.');
       }
     }
@@ -119,20 +164,20 @@ export class PrescriptionService {
       const expiresAt = new Date(
         Date.now() + this.config.get('PRESCRIPTION_EXPIRATION_HOURS') * 3_600_000,
       );
-      const pharmacies = await this.prisma.pharmacy.findMany({
-        where: {
-          registrationStatus: 'APPROVED',
-          isActive: true,
-          deletedAt: null,
-          licenseExpirationDate: { gt: new Date() },
-        },
-        select: { id: true },
-      });
-      const prescription = await this.prisma.$transaction(async (transaction) => {
+      const transactionResult = await this.prisma.$transaction(async (transaction) => {
+        const pharmacies = await transaction.pharmacy.findMany({
+          where: {
+            registrationStatus: 'APPROVED',
+            isActive: true,
+            deletedAt: null,
+            licenseExpirationDate: { gt: new Date() },
+          },
+          select: { id: true },
+        });
         const created = await transaction.prescription.create({
           data: {
             publicId,
-            accessTokenHash: hashAccessToken(accessToken),
+            accessTokenHash: hashOpaqueToken(accessToken),
             mobile: parsed.data.mobile,
             nationalId: parsed.data.nationalId,
             prescriptionTrackingCode: parsed.data.prescriptionTrackingCode,
@@ -161,8 +206,9 @@ export class PrescriptionService {
             })),
           });
         }
-        return created;
+        return { prescription: created, pharmacyCount: pharmacies.length };
       });
+      const prescription = transactionResult.prescription;
       const result: PublicPrescriptionData = {
         publicId: prescription.publicId,
         accessToken,
@@ -170,7 +216,12 @@ export class PrescriptionService {
         statusUrl: `${this.config.get('WEB_APP_URL')}/request/${prescription.publicId}?token=${encodeURIComponent(accessToken)}`,
         expiresAt: prescription.expiresAt.toISOString(),
       };
-      if (idempotencyCacheKey) await this.redis.setJson(idempotencyCacheKey, result, 900);
+      if (idempotencyCacheKey)
+        await this.redis.setJson(
+          idempotencyCacheKey,
+          { fingerprint: requestFingerprint, response: result },
+          900,
+        );
       await this.audit.record({
         action: 'CREATE_PRESCRIPTION',
         entityType: 'Prescription',
@@ -178,11 +229,15 @@ export class PrescriptionService {
         requestId: request.requestId,
         ipAddress: request.ip ?? 'unknown',
         userAgent: request.get('user-agent') ?? '',
-        metadata: { publicId: prescription.publicId, pharmacyCount: pharmacies.length },
+        metadata: {
+          publicId: prescription.publicId,
+          pharmacyCount: transactionResult.pharmacyCount,
+        },
       });
       return result;
     } finally {
-      if (idempotencyLockKey) await this.redis.delete(idempotencyLockKey);
+      if (idempotencyLockKey && idempotencyLockValue)
+        await this.redis.deleteIfValue(idempotencyLockKey, idempotencyLockValue);
     }
   }
 
@@ -191,6 +246,7 @@ export class PrescriptionService {
     rawToken: string | undefined,
     request: RequestWithContext,
   ): Promise<Record<string, unknown>> {
+    if (!isValidPublicId(publicId)) throw publicNotFound();
     const publicAllowed = await this.redis.consumeRateLimit(
       `pharmacy-mvp:prescription-status:${request.ip ?? 'unknown'}:${publicId}`,
       60,
@@ -240,7 +296,8 @@ export class PrescriptionService {
             data.status !== 'COMPLETED' &&
             !data.selectedPharmacyId &&
             assignment.pharmacy.registrationStatus === 'APPROVED' &&
-            assignment.pharmacy.isActive,
+            assignment.pharmacy.isActive &&
+            assignment.pharmacy.licenseExpirationDate > new Date(),
         };
       })
       .filter((response): response is NonNullable<typeof response> => response !== null)
@@ -267,39 +324,58 @@ export class PrescriptionService {
     pharmacyId: string,
     request: RequestWithContext,
   ): Promise<{ selectedPharmacyId: string; status: 'SELECTED_PHARMACY' }> {
+    await this.consumePublicMutationRateLimit(publicId, request);
     const prescription = await this.findByPublicToken(publicId, rawToken);
     const now = new Date();
     if (prescription.cancelledAt || prescription.completedAt || prescription.selectedPharmacyId)
       throw conflict('PRESCRIPTION_CLOSED', 'این درخواست دیگر قابل انتخاب نیست.');
-    if (prescription.expiresAt <= now)
-      throw new AppError('PRESCRIPTION_EXPIRED', 'مهلت این درخواست به پایان رسیده است.', 410);
-    const candidate = await this.prisma.pharmacy.findFirst({
-      where: {
-        id: pharmacyId,
-        registrationStatus: 'APPROVED',
-        isActive: true,
-        deletedAt: null,
-        licenseExpirationDate: { gt: now },
-      },
-      select: { id: true },
-    });
-    if (!candidate)
-      throw new AppError('PHARMACY_NOT_SELECTABLE', 'داروخانه انتخاب‌شده دیگر فعال نیست.', 409);
-    const response = await this.prisma.pharmacyResponse.findUnique({
-      where: { prescriptionId_pharmacyId: { prescriptionId: prescription.id, pharmacyId } },
-      select: { availabilityStatus: true },
-    });
-    if (
-      !response ||
-      (response.availabilityStatus !== 'FULL_AVAILABLE' &&
-        response.availabilityStatus !== 'PARTIAL_AVAILABLE')
-    )
-      throw new AppError(
-        'PHARMACY_NOT_SELECTABLE',
-        'این داروخانه پاسخ قابل انتخابی ثبت نکرده است.',
-        409,
+    if (prescription.expiresAt <= now) {
+      await this.expireIfNeeded(
+        prescription.id,
+        prescription.expiresAt,
+        prescription.selectedPharmacyId,
+        prescription.cancelledAt,
+        prescription.completedAt,
       );
+      throw new AppError('PRESCRIPTION_EXPIRED', 'مهلت این درخواست به پایان رسیده است.', 410);
+    }
     await this.prisma.$transaction(async (transaction) => {
+      const candidate = await transaction.pharmacy.findFirst({
+        where: {
+          id: pharmacyId,
+          registrationStatus: 'APPROVED',
+          isActive: true,
+          deletedAt: null,
+          licenseExpirationDate: { gt: now },
+        },
+        select: { id: true },
+      });
+      if (!candidate)
+        throw new AppError('PHARMACY_NOT_SELECTABLE', 'داروخانه انتخاب‌شده دیگر فعال نیست.', 409);
+      const assignment = await transaction.prescriptionPharmacyRequest.findUnique({
+        where: { prescriptionId_pharmacyId: { prescriptionId: prescription.id, pharmacyId } },
+        select: { status: true },
+      });
+      if (!assignment || ['CLOSED', 'EXPIRED', 'SELECTED'].includes(assignment.status))
+        throw new AppError(
+          'PHARMACY_NOT_SELECTABLE',
+          'این داروخانه دیگر در این درخواست فعال نیست.',
+          409,
+        );
+      const response = await transaction.pharmacyResponse.findUnique({
+        where: { prescriptionId_pharmacyId: { prescriptionId: prescription.id, pharmacyId } },
+        select: { availabilityStatus: true },
+      });
+      if (
+        !response ||
+        (response.availabilityStatus !== 'FULL_AVAILABLE' &&
+          response.availabilityStatus !== 'PARTIAL_AVAILABLE')
+      )
+        throw new AppError(
+          'PHARMACY_NOT_SELECTABLE',
+          'این داروخانه پاسخ قابل انتخابی ثبت نکرده است.',
+          409,
+        );
       const update = await transaction.prescription.updateMany({
         where: {
           id: prescription.id,
@@ -345,24 +421,36 @@ export class PrescriptionService {
     rawToken: string | undefined,
     request: RequestWithContext,
   ): Promise<{ status: 'CANCELLED' }> {
+    await this.consumePublicMutationRateLimit(publicId, request);
     const prescription = await this.findByPublicToken(publicId, rawToken);
     const now = new Date();
-    if (prescription.expiresAt <= now)
+    if (prescription.expiresAt <= now) {
+      await this.expireIfNeeded(
+        prescription.id,
+        prescription.expiresAt,
+        prescription.selectedPharmacyId,
+        prescription.cancelledAt,
+        prescription.completedAt,
+      );
       throw new AppError('PRESCRIPTION_EXPIRED', 'مهلت این درخواست به پایان رسیده است.', 410);
-    const update = await this.prisma.prescription.updateMany({
-      where: {
-        id: prescription.id,
-        selectedPharmacyId: null,
-        cancelledAt: null,
-        completedAt: null,
-      },
-      data: { status: 'CANCELLED', cancelledAt: now },
-    });
-    if (update.count !== 1)
-      throw conflict('PRESCRIPTION_CLOSED', 'این درخواست دیگر قابل لغو نیست.');
-    await this.prisma.prescriptionPharmacyRequest.updateMany({
-      where: { prescriptionId: prescription.id, status: { notIn: ['CLOSED', 'EXPIRED'] } },
-      data: { status: 'CLOSED', closedAt: now },
+    }
+    await this.prisma.$transaction(async (transaction) => {
+      const update = await transaction.prescription.updateMany({
+        where: {
+          id: prescription.id,
+          selectedPharmacyId: null,
+          cancelledAt: null,
+          completedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { status: 'CANCELLED', cancelledAt: now },
+      });
+      if (update.count !== 1)
+        throw conflict('PRESCRIPTION_CLOSED', 'این درخواست دیگر قابل لغو نیست.');
+      await transaction.prescriptionPharmacyRequest.updateMany({
+        where: { prescriptionId: prescription.id, status: { notIn: ['CLOSED', 'EXPIRED'] } },
+        data: { status: 'CLOSED', closedAt: now },
+      });
     });
     await this.audit.record({
       action: 'CANCEL_PRESCRIPTION',
@@ -381,6 +469,7 @@ export class PrescriptionService {
     rawToken: string | undefined,
     request: RequestWithContext,
   ): Promise<{ status: 'COMPLETED' }> {
+    await this.consumePublicMutationRateLimit(publicId, request);
     const prescription = await this.findByPublicToken(publicId, rawToken);
     if (!prescription.selectedPharmacyId)
       throw conflict('PHARMACY_NOT_SELECTED', 'ابتدا یک داروخانه را انتخاب کنید.');
@@ -441,7 +530,7 @@ export class PrescriptionService {
       this.prisma.prescriptionPharmacyRequest.count({ where }),
       this.prisma.prescriptionPharmacyRequest.findMany({
         where,
-        orderBy: { sentAt: 'desc' },
+        orderBy: { sentAt: query.sort === 'oldest' ? 'asc' : 'desc' },
         skip: (page - 1) * limit,
         take: limit,
         include: {
@@ -466,7 +555,7 @@ export class PrescriptionService {
     pharmacyId: string,
     request: RequestWithContext,
   ): Promise<Record<string, unknown>> {
-    const row = await this.prisma.prescriptionPharmacyRequest.findFirst({
+    let row = await this.prisma.prescriptionPharmacyRequest.findFirst({
       where: { id, pharmacyId },
       include: {
         prescription: {
@@ -481,22 +570,50 @@ export class PrescriptionService {
       },
     });
     if (!row) throw new AppError('NOT_FOUND', 'درخواست موردنظر پیدا نشد.', 404);
-    if (row.status === 'SENT') {
-      await this.prisma.prescriptionPharmacyRequest.update({
-        where: { id: row.id },
+    const isExpired = row.prescription.expiresAt <= new Date();
+    await this.expireIfNeeded(
+      row.prescriptionId,
+      row.prescription.expiresAt,
+      row.prescription.selectedPharmacyId,
+      row.prescription.cancelledAt,
+      row.prescription.completedAt,
+    );
+    if (row.status === 'SENT' && !isExpired) {
+      const viewed = await this.prisma.prescriptionPharmacyRequest.updateMany({
+        where: { id: row.id, pharmacyId, status: 'SENT' },
         data: { status: 'VIEWED', seenAt: new Date() },
       });
-      await this.refreshAggregate(row.prescriptionId);
-      await this.audit.record({
-        actorUserId: request.user?.id,
-        action: 'VIEW_PRESCRIPTION',
-        entityType: 'Prescription',
-        entityId: row.prescriptionId,
-        requestId: request.requestId,
-        ipAddress: request.ip ?? 'unknown',
-        userAgent: request.get('user-agent') ?? '',
-        metadata: { pharmacyId },
+      if (viewed.count === 1) {
+        await this.refreshAggregate(row.prescriptionId);
+        await this.audit.record({
+          actorUserId: request.user?.id,
+          action: 'VIEW_PRESCRIPTION',
+          entityType: 'Prescription',
+          entityId: row.prescriptionId,
+          requestId: request.requestId,
+          ipAddress: request.ip ?? 'unknown',
+          userAgent: request.get('user-agent') ?? '',
+          metadata: { pharmacyId },
+        });
+      }
+    }
+    if (row.status === 'SENT' || isExpired) {
+      const refreshed = await this.prisma.prescriptionPharmacyRequest.findFirst({
+        where: { id, pharmacyId },
+        include: {
+          prescription: {
+            include: {
+              baseInsurance: true,
+              supplementaryInsurance: true,
+              responses: { where: { pharmacyId } },
+              selectedPharmacy: true,
+            },
+          },
+          pharmacy: true,
+        },
       });
+      if (!refreshed) throw new AppError('NOT_FOUND', 'درخواست موردنظر پیدا نشد.', 404);
+      row = refreshed;
     }
     return this.mapPharmacyDetail(row);
   }
@@ -618,7 +735,7 @@ export class PrescriptionService {
         where: { pharmacyId, prescription: { status: 'REJECTED' } },
       }),
       this.prisma.prescriptionPharmacyRequest.count({
-        where: { pharmacyId, sentAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+        where: { pharmacyId, sentAt: { gte: startOfTehranDay(new Date()) } },
       }),
     ]);
     return { new: newCount, underReview, accepted, partial, rejected, today };
@@ -656,9 +773,7 @@ export class PrescriptionService {
     return { read: true };
   }
 
-  async adminList(
-    query: PrescriptionListQueryDto,
-  ): Promise<{
+  async adminList(query: PrescriptionListQueryDto): Promise<{
     items: Array<Record<string, unknown>>;
     pagination: { page: number; limit: number; total: number; pages: number };
   }> {
@@ -697,7 +812,7 @@ export class PrescriptionService {
       this.prisma.prescription.count({ where }),
       this.prisma.prescription.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: query.sort === 'oldest' ? 'asc' : 'desc' },
         skip: (page - 1) * limit,
         take: limit,
         include: {
@@ -710,6 +825,7 @@ export class PrescriptionService {
     ]);
     return {
       items: rows.map((row) => ({
+        id: row.id,
         publicId: row.publicId,
         status: row.status,
         mobile: maskMobile(row.mobile),
@@ -740,8 +856,8 @@ export class PrescriptionService {
       id: row.id,
       publicId: row.publicId,
       status: row.status,
-      mobile: maskMobile(row.mobile),
-      nationalId: maskNationalId(row.nationalId),
+      mobile: row.mobile,
+      nationalId: row.nationalId,
       prescriptionTrackingCode: row.prescriptionTrackingCode,
       baseInsurance: row.baseInsurance.name,
       supplementaryInsurance: row.supplementaryInsurance?.name ?? null,
@@ -774,35 +890,42 @@ export class PrescriptionService {
   }
 
   async refreshAggregate(prescriptionId: string): Promise<PrescriptionStatus> {
-    const row = await this.prisma.prescription.findUnique({
-      where: { id: prescriptionId },
-      include: { assignments: true, responses: { select: { availabilityStatus: true } } },
-    });
-    if (!row) throw new AppError('NOT_FOUND', 'درخواست موردنظر پیدا نشد.', 404);
-    const nextStatus = aggregatePrescriptionStatus({
-      cancelledAt: row.cancelledAt,
-      completedAt: row.completedAt,
-      selectedPharmacyId: row.selectedPharmacyId,
-      expiresAt: row.expiresAt,
-      assignmentCount: row.assignments.length,
-      respondedCount: row.responses.length,
-      hasViewedAssignment: row.assignments.some((assignment) => assignment.status === 'VIEWED'),
-      hasNotAvailableResponse: row.responses.some(
-        (response) => response.availabilityStatus === 'NOT_AVAILABLE',
-      ),
-      availabilityStatuses: row.responses.map((response) => response.availabilityStatus),
-    });
-    if (
-      row.status !== nextStatus &&
-      !row.selectedPharmacyId &&
-      !row.cancelledAt &&
-      !row.completedAt
-    )
-      await this.prisma.prescription.update({
+    return this.prisma.$transaction(async (transaction) => {
+      const locked = await transaction.$queryRaw<Array<{ id: string }>>(
+        Prisma.sql`SELECT "id" FROM "Prescription" WHERE "id" = ${prescriptionId} FOR UPDATE`,
+      );
+      if (!locked.length) throw new AppError('NOT_FOUND', 'درخواست موردنظر پیدا نشد.', 404);
+
+      const row = await transaction.prescription.findUnique({
         where: { id: prescriptionId },
-        data: { status: nextStatus },
+        include: { assignments: true, responses: { select: { availabilityStatus: true } } },
       });
-    return nextStatus;
+      if (!row) throw new AppError('NOT_FOUND', 'درخواست موردنظر پیدا نشد.', 404);
+      const nextStatus = aggregatePrescriptionStatus({
+        cancelledAt: row.cancelledAt,
+        completedAt: row.completedAt,
+        selectedPharmacyId: row.selectedPharmacyId,
+        expiresAt: row.expiresAt,
+        assignmentCount: row.assignments.length,
+        respondedCount: row.responses.length,
+        hasViewedAssignment: row.assignments.some((assignment) => assignment.status === 'VIEWED'),
+        hasNotAvailableResponse: row.responses.some(
+          (response) => response.availabilityStatus === 'NOT_AVAILABLE',
+        ),
+        availabilityStatuses: row.responses.map((response) => response.availabilityStatus),
+      });
+      if (
+        row.status !== nextStatus &&
+        !row.selectedPharmacyId &&
+        !row.cancelledAt &&
+        !row.completedAt
+      )
+        await transaction.prescription.update({
+          where: { id: prescriptionId },
+          data: { status: nextStatus },
+        });
+      return nextStatus;
+    });
   }
 
   private async getCurrentStatus(id: string): Promise<PrescriptionStatus> {
@@ -814,13 +937,25 @@ export class PrescriptionService {
     return row.status;
   }
 
+  private async consumePublicMutationRateLimit(
+    publicId: string,
+    request: RequestWithContext,
+  ): Promise<void> {
+    if (!isValidPublicId(publicId)) throw publicNotFound();
+    const allowed = await this.redis.consumeRateLimit(
+      `pharmacy-mvp:prescription-mutation:${request.ip ?? 'unknown'}:${publicId}`,
+      20,
+      60,
+    );
+    if (!allowed) throw new AppError('RATE_LIMITED', 'تعداد درخواست‌ها بیش از حد مجاز است.', 429);
+  }
+
   private async findByPublicToken(publicId: string, rawToken: string | undefined) {
-    const prescription = await this.prisma.prescription.findUnique({ where: { publicId } });
-    if (!prescription || !rawToken) throw publicNotFound();
-    const provided = Buffer.from(hashAccessToken(rawToken));
-    const stored = Buffer.from(prescription.accessTokenHash);
-    if (provided.length !== stored.length || !timingSafeEqual(provided, stored))
+    if (!isValidPublicId(publicId) || !rawToken || !ACCESS_TOKEN_PATTERN.test(rawToken))
       throw publicNotFound();
+    const prescription = await this.prisma.prescription.findUnique({ where: { publicId } });
+    if (!prescription) throw publicNotFound();
+    if (!verifyOpaqueToken(rawToken, prescription.accessTokenHash)) throw publicNotFound();
     return prescription;
   }
 
@@ -958,6 +1093,8 @@ export class PrescriptionService {
     return {
       id: row.id,
       publicId: row.prescription.publicId,
+      sentAt: row.sentAt.toISOString(),
+      seenAt: row.seenAt?.toISOString() ?? null,
       status: row.status,
       prescriptionStatus: row.prescription.status,
       mobile: row.prescription.mobile,

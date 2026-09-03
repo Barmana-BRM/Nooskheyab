@@ -26,6 +26,11 @@ interface Registration {
 }
 
 export const RegistrationStatusPage = () => {
+  const user = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: () => api.request<{ role: string }>('/auth/me'),
+    staleTime: 60_000,
+  });
   const query = useQuery({
     queryKey: ['pharmacy', 'registration'],
     queryFn: () => api.request<Registration>('/pharmacy/registration-status'),
@@ -34,9 +39,10 @@ export const RegistrationStatusPage = () => {
     mutationFn: () => api.request('/pharmacy/submit-for-approval', { method: 'POST' }),
     onSuccess: () => void query.refetch(),
   });
-  if (query.isPending) return <Loading />;
+  if (query.isPending || user.isPending) return <Loading />;
   if (query.isError || !query.data) return <ErrorState onRetry={() => void query.refetch()} />;
   const data = query.data;
+  const canManageRegistration = user.data?.role === 'PHARMACY_ADMIN';
   return (
     <>
       <PageTitle title="وضعیت ثبت‌نام داروخانه" description={data.name} />
@@ -46,7 +52,8 @@ export const RegistrationStatusPage = () => {
             status={data.registrationStatus}
             label={statusLabel(data.registrationStatus)}
           />
-          {['DRAFT', 'CHANGES_REQUESTED', 'REJECTED'].includes(data.registrationStatus) ? (
+          {canManageRegistration &&
+          ['DRAFT', 'CHANGES_REQUESTED', 'REJECTED'].includes(data.registrationStatus) ? (
             <Link to="/pharmacy/profile">
               <Button>تکمیل اطلاعات</Button>
             </Link>
@@ -73,7 +80,8 @@ export const RegistrationStatusPage = () => {
         ) : (
           <Empty>هنوز مدرکی بارگذاری نشده است.</Empty>
         )}
-        {['DRAFT', 'CHANGES_REQUESTED', 'REJECTED'].includes(data.registrationStatus) ? (
+        {canManageRegistration &&
+        ['DRAFT', 'CHANGES_REQUESTED', 'REJECTED'].includes(data.registrationStatus) ? (
           <div className="form-actions">
             <span className="muted">پس از تکمیل اطلاعات و بارگذاری مجوز ارسال کنید.</span>
             <Button onClick={() => submit.mutate()} loading={submit.isPending}>

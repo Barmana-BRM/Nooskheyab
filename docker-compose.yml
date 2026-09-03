@@ -66,6 +66,12 @@ services:
       DATABASE_URL: postgresql://pharmacy:pharmacy_dev_password@postgres:5432/pharmacy_mvp
       REDIS_URL: redis://redis:6379
       S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: local-dev-access-key
+      S3_SECRET_KEY: local-dev-secret-key-change-me
+      S3_BUCKET: pharmacy-documents
+      S3_FORCE_PATH_STYLE: 'true'
+      JWT_ACCESS_SECRET: local-development-access-secret-at-least-32-chars
+      JWT_REFRESH_SECRET: local-development-refresh-secret-at-least-32-chars
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,7 +81,12 @@ services:
         condition: service_completed_successfully
     ports:
       - '4000:4000'
-    command: ['sh', '-c', 'npm run db:migrate && npm run db:seed && npm run start']
+    command:
+      [
+        'sh',
+        '-c',
+        'npm run db:migrate --workspace apps/api && npm run db:seed --workspace apps/api && npm run start --workspace apps/api',
+      ]
     healthcheck:
       test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:4000/health']
       interval: 10s
@@ -90,7 +101,7 @@ services:
       api:
         condition: service_healthy
     ports:
-      - '5173:80'
+      - '5173:8080'
 
 volumes:
   postgres_data:

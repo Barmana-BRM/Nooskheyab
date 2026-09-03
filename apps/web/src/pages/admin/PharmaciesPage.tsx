@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { statusLabel } from '../../lib/status';
 import {
@@ -37,6 +38,12 @@ export const PharmaciesPage = () => {
     <>
       <PageTitle title="داروخانه‌ها" description="فعال‌سازی و تعلیق با حفظ سوابق انجام می‌شود." />
       <Card>
+        <div className="form-actions" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
+          <span className="muted">فقط داروخانه‌های حذف‌نشده نمایش داده می‌شوند.</span>
+          <Link className="btn btn-primary" to="/admin/pharmacies/create">
+            افزودن داروخانه
+          </Link>
+        </div>
         {query.data.length ? (
           <div className="mobile-row-list">
             {query.data.map((row) => (
@@ -52,15 +59,26 @@ export const PharmaciesPage = () => {
                   {row.province}، {row.city} · {row.mobile}
                 </span>
                 <div className="button-row">
+                  <Link className="link-button" to={`/admin/pharmacies/${row.id}`}>
+                    ویرایش
+                  </Link>
                   {row.registrationStatus === 'APPROVED' ? (
                     <Button
                       className="btn-danger"
-                      onClick={() => action.mutate({ id: row.id, type: 'suspend' })}
+                      onClick={() => {
+                        if (window.confirm('آیا از تعلیق این داروخانه مطمئن هستید؟'))
+                          action.mutate({ id: row.id, type: 'suspend' });
+                      }}
                     >
                       تعلیق
                     </Button>
                   ) : row.registrationStatus === 'SUSPENDED' ? (
-                    <Button onClick={() => action.mutate({ id: row.id, type: 'reactivate' })}>
+                    <Button
+                      onClick={() => {
+                        if (window.confirm('آیا از فعال‌سازی دوباره این داروخانه مطمئن هستید؟'))
+                          action.mutate({ id: row.id, type: 'reactivate' });
+                      }}
+                    >
                       فعال‌سازی
                     </Button>
                   ) : null}

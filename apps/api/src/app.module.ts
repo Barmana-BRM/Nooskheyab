@@ -14,7 +14,11 @@ import { HealthController } from './health.controller';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: (config) => parseEnvironment(config) }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env', '../../.env'],
+      validate: (config) => parseEnvironment(config),
+    }),
     ScheduleModule.forRoot(),
     CommonModule,
     AuthModule,

@@ -17,6 +17,8 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService<AppEnvironment, true>);
   const logger = app.get(StructuredLogger);
   app.useLogger(logger);
+  if (config.get('NODE_ENV') === 'production')
+    app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.setGlobalPrefix('api/v1', { exclude: ['health'] });
   app.use(cookieParser());
   app.use(json({ limit: '1mb' }));
@@ -49,7 +51,7 @@ async function bootstrap(): Promise<void> {
     }),
   );
   app.useGlobalInterceptors(new ResponseEnvelopeInterceptor());
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalFilters(new GlobalExceptionFilter(logger));
   if (config.get('SWAGGER_ENABLED')) {
     const document = SwaggerModule.createDocument(
       app,

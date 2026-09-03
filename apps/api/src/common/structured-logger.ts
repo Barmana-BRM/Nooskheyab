@@ -45,8 +45,10 @@ export class StructuredLogger implements LoggerService {
       service: 'pharmacy-prescription-api',
       environment: this.config.get('APP_ENV'),
       context: context ?? this.context,
-      message: typeof message === 'string' ? message : 'structured event',
     };
+    if (message && typeof message === 'object' && !Array.isArray(message))
+      Object.assign(entry, message as Record<string, unknown>);
+    else entry.message = typeof message === 'string' ? message : 'structured event';
     if (trace && this.config.get('NODE_ENV') !== 'production') entry.trace = trace;
     process.stdout.write(`${JSON.stringify(entry)}\n`);
   }

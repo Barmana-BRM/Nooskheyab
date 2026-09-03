@@ -50,7 +50,11 @@ export const prescriptionCreateSchema = z
           .string()
           .min(4, 'کد رهگیری نسخه حداقل ۴ کاراکتر است.')
           .max(50, 'کد رهگیری نسخه حداکثر ۵۰ کاراکتر است.')
-          .refine((value) => !hasControlCharacters(value), 'کد رهگیری نسخه معتبر نیست.'),
+          .refine((value) => !hasControlCharacters(value), 'کد رهگیری نسخه معتبر نیست.')
+          .refine(
+            (value) => /^[\p{L}\p{N}._/-]+$/u.test(value),
+            'کد رهگیری نسخه فقط می‌تواند شامل حروف، عدد و خط تیره باشد.',
+          ),
       ),
     baseInsuranceId: z.string().uuid('بیمه پایه را انتخاب کنید.'),
     hasSupplementaryInsurance: z.boolean(),
@@ -141,3 +145,8 @@ export const pharmacyRegistrationSchema = z.object({
 });
 
 export const safeSearchSchema = z.string().trim().max(100).optional();
+
+export const isCommonPassword = (value: string): boolean =>
+  new Set(['1234567890', 'password123', 'qwertyuiop', 'abcdefghij', '123456789a']).has(
+    value.toLowerCase(),
+  );

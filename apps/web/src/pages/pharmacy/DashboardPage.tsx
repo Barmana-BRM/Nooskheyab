@@ -35,7 +35,9 @@ export const PharmacyDashboardPage = () => {
   const stats = useQuery({
     queryKey: ['pharmacy', 'dashboard'],
     queryFn: () => api.request<Dashboard>('/pharmacy/dashboard'),
-    refetchInterval: 60_000,
+    refetchInterval: () =>
+      document.visibilityState === 'visible' && navigator.onLine ? 60_000 : false,
+    refetchIntervalInBackground: false,
   });
   const rows = useQuery({
     queryKey: ['pharmacy', 'requests', 'recent'],

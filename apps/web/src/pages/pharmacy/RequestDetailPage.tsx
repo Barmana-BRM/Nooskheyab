@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
+import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import type { z } from 'zod';
 import { pharmacyResponseSchema } from '@pharmacy-mvp/validation';
@@ -32,7 +33,12 @@ interface Detail {
   supplementaryDescription: string | null;
   patientDescription: string | null;
   expiresAt: string;
-  response: { availabilityStatus: string; description: string | null } | null;
+  sentAt: string;
+  seenAt: string | null;
+  response: {
+    availabilityStatus: ResponseInput['availabilityStatus'];
+    description: string | null;
+  } | null;
   selectedPharmacyId: string | null;
 }
 
@@ -47,6 +53,12 @@ export const RequestDetailPage = () => {
     resolver: zodResolver(pharmacyResponseSchema),
     defaultValues: { availabilityStatus: 'FULL_AVAILABLE', description: '' },
   });
+  useEffect(() => {
+    form.reset({
+      availabilityStatus: query.data?.response?.availabilityStatus ?? 'FULL_AVAILABLE',
+      description: query.data?.response?.description ?? '',
+    });
+  }, [form, query.data?.response]);
   const response = useMutation({
     mutationFn: (value: ResponseInput) =>
       api.request(`/pharmacy/prescriptions/${encodeURIComponent(id)}/respond`, {
@@ -65,7 +77,7 @@ export const RequestDetailPage = () => {
     <>
       <PageTitle
         title={`درخواست ${data.publicId}`}
-        description={`ارسال‌شده در ${formatJalaliDateTime(new Date())}`}
+        description={`ارسال‌شده در ${formatJalaliDateTime(data.sentAt)}`}
       />
       <Card>
         <dl className="detail-grid">

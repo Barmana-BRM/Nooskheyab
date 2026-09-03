@@ -56,9 +56,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   async consumeRateLimit(key: string, limit: number, windowSeconds: number): Promise<boolean> {
     try {
-      const count = await this.client.incr(key);
-      if (count === 1) await this.client.expire(key, windowSeconds);
-      return count <= limit;
+      const count = await this.client.eval(
+        "local count = redis.call('incr', KEYS[1]); if count == 1 then redis.call('expire', KEYS[1], ARGV[1]); end; return count",
+        1,
+        key,
+        String(windowSeconds),
+      );
+      return Number(count) <= limit;
     } catch {
       return true;
     }
@@ -70,6 +74,19 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       return result === 'OK';
     } catch {
       return false;
+    }
+  }
+
+  async deleteIfValue(key: string, value: string): Promise<void> {
+    try {
+      await this.client.eval(
+        "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+        1,
+        key,
+        value,
+      );
+    } catch {
+      // Best effort lock cleanup; the TTL remains the safety boundary.
     }
   }
 }

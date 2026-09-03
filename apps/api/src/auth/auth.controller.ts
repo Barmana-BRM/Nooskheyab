@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { LoginDto, RefreshDto } from './auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from '../common/auth.decorators';
+import { REFRESH_COOKIE_NAME } from '../common/constants';
 import type { AuthenticatedUser, RequestWithContext } from '../common/request-context';
 
 @Controller('auth')
@@ -42,7 +43,7 @@ export class AuthController {
     @Req() request: RequestWithContext,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const cookieToken = request.cookies?.pharmacy_refresh as string | undefined;
+    const cookieToken = request.cookies?.[REFRESH_COOKIE_NAME] as string | undefined;
     if (!body.refreshToken) this.auth.assertCsrf(request);
     const tokens = await this.auth.refresh(body.refreshToken ?? cookieToken);
     if (!body.refreshToken) this.auth.setRefreshCookie(response, tokens.refreshToken);
@@ -58,7 +59,7 @@ export class AuthController {
     @Req() request: RequestWithContext,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const cookieToken = request.cookies?.pharmacy_refresh as string | undefined;
+    const cookieToken = request.cookies?.[REFRESH_COOKIE_NAME] as string | undefined;
     if (!body.refreshToken) this.auth.assertCsrf(request);
     const result = await this.auth.logout(body.refreshToken ?? cookieToken, request);
     this.auth.clearRefreshCookie(response);

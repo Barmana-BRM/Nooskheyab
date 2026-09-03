@@ -21,6 +21,7 @@ interface Dashboard {
   partial: number;
   rejected: number;
   today: number;
+  unreadNotifications: number;
 }
 interface RequestRow {
   id: string;
@@ -65,7 +66,8 @@ export const PharmacyDashboardPage = () => {
           <h2 style={{ margin: 0, fontSize: '1.1rem' }}>آخرین درخواست‌ها</h2>
           <div className="button-row">
             <span className="muted">
-              <Bell size={15} style={{ verticalAlign: 'middle' }} /> امروز: {stats.data.today}
+              <Bell size={15} style={{ verticalAlign: 'middle' }} /> اعلان‌های خوانده‌نشده:{' '}
+              <strong>{stats.data.unreadNotifications}</strong>
             </span>
             <Button className="btn-secondary" onClick={() => void rows.refetch()}>
               <RefreshCw size={15} />

@@ -58,7 +58,12 @@ export class AdminService {
       this.prisma.prescription.count({ where: { status: 'PARTIAL' } }),
       this.prisma.prescription.count({ where: { status: 'REJECTED' } }),
       this.prisma.pharmacy.count({
-        where: { registrationStatus: 'APPROVED', isActive: true, deletedAt: null },
+        where: {
+          registrationStatus: 'APPROVED',
+          isActive: true,
+          deletedAt: null,
+          licenseExpirationDate: { gt: now },
+        },
       }),
       this.prisma.pharmacy.count({
         where: { registrationStatus: 'PENDING_APPROVAL', deletedAt: null },

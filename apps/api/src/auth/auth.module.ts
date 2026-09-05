@@ -20,6 +20,6 @@ import { ApprovedPharmacyGuard } from './approved-pharmacy.guard';
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtAuthGuard, RolesGuard, ApprovedPharmacyGuard],
-  exports: [AuthService, JwtAuthGuard, RolesGuard, ApprovedPharmacyGuard],
+  exports: [JwtModule, AuthService, JwtAuthGuard, RolesGuard, ApprovedPharmacyGuard],
 })
 export class AuthModule {}

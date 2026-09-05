@@ -13,11 +13,11 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@pharmacy-mvp/types": ["packages/types/dist/index.d.ts"],
-      "@pharmacy-mvp/validation": ["packages/validation/dist/index.d.ts"],
-      "@pharmacy-mvp/config": ["packages/config/dist/index.d.ts"],
-      "@pharmacy-mvp/api-client": ["packages/api-client/dist/index.d.ts"],
-      "@pharmacy-mvp/ui": ["packages/ui/dist/index.d.ts"]
+      "@pharmacy-mvp/types": ["packages/types/dist/index"],
+      "@pharmacy-mvp/validation": ["packages/validation/dist/index"],
+      "@pharmacy-mvp/config": ["packages/config/dist/index"],
+      "@pharmacy-mvp/api-client": ["packages/api-client/dist/index"],
+      "@pharmacy-mvp/ui": ["packages/ui/dist/index"]
     },
     "skipLibCheck": true,
     "declaration": true,

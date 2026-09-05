@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: pharmacy
       POSTGRES_PASSWORD: pharmacy_dev_password
     ports:
-      - '5432:5432'
+      - '${POSTGRES_HOST_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +19,7 @@ services:
     image: redis:7-alpine
     command: redis-server --appendonly yes
     ports:
-      - '6379:6379'
+      - '${REDIS_HOST_PORT:-6379}:6379'
     volumes:
       - redis_data:/data
     healthcheck:
@@ -29,14 +29,14 @@ services:
       retries: 10
 
   minio:
-    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     command: server /data --console-address ':9001'
     environment:
       MINIO_ROOT_USER: local-dev-access-key
       MINIO_ROOT_PASSWORD: local-dev-secret-key-change-me
     ports:
-      - '9000:9000'
-      - '9001:9001'
+      - '${MINIO_API_HOST_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_HOST_PORT:-9001}:9001'
     volumes:
       - minio_data:/data
     healthcheck:

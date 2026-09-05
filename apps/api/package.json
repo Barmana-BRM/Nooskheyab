@@ -4,7 +4,7 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
+    "dev": "npm run build && concurrently -n compile,run -c yellow,green \"tsc -p tsconfig.json --watch --preserveWatchOutput\" \"node --watch --enable-source-maps dist/src/main.js\"",
     "build": "prisma generate && tsc -p tsconfig.json",
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",

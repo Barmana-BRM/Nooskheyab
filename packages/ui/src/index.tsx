@@ -53,9 +53,17 @@ export const Button = forwardRef<
     className={`btn btn-primary ${className}`}
     type={type}
     disabled={disabled || loading}
+    aria-busy={loading || undefined}
     {...props}
   >
-    {loading ? 'در حال پردازش…' : children}
+    {loading ? (
+      <>
+        <span className="spinner button-spinner" aria-hidden="true" />
+        در حال انجام…
+      </>
+    ) : (
+      children
+    )}
   </button>
 ));
 Button.displayName = 'Button';
@@ -72,54 +80,74 @@ SecondaryButton.displayName = 'SecondaryButton';
 
 export const Input = forwardRef<
   HTMLInputElement,
-  InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string }
->(({ label, error, id, className = '', ...props }, ref) => {
+  InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string; hint?: string }
+>(({ label, error, hint, id, className = '', ...props }, ref) => {
   const generatedId = useId();
   const inputId = id ?? props.name ?? generatedId;
   return (
-    <label className="field" htmlFor={inputId}>
-      <span className="field-label">{label}</span>
+    <div className={`field ${className.split(' ').includes('full') ? 'full' : ''}`}>
+      <div className="field-label">
+        <label htmlFor={inputId}>{label}</label>
+        {props.required ? (
+          <span className="required-mark" aria-hidden="true">
+            {' '}
+            *
+          </span>
+        ) : null}
+      </div>
       <input
         ref={ref}
         id={inputId}
         className={`input ${error ? 'input-error' : ''} ${className}`}
         aria-invalid={Boolean(error)}
-        aria-describedby={error ? `${inputId}-error` : undefined}
+        aria-describedby={error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
         {...props}
       />
+      {!error && hint ? (
+        <span id={`${inputId}-hint`} className="field-hint">
+          {hint}
+        </span>
+      ) : null}
       {error ? (
         <span id={`${inputId}-error`} className="field-error" role="alert">
           {error}
         </span>
       ) : null}
-    </label>
+    </div>
   );
 });
 Input.displayName = 'Input';
 
 export const Textarea = forwardRef<
   HTMLTextAreaElement,
-  TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; error?: string }
->(({ label, error, id, className = '', ...props }, ref) => {
+  TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; error?: string; hint?: string }
+>(({ label, error, hint, id, className = '', ...props }, ref) => {
   const generatedId = useId();
   const textareaId = id ?? props.name ?? generatedId;
   return (
-    <label className="field" htmlFor={textareaId}>
-      <span className="field-label">{label}</span>
+    <div className={`field ${className.split(' ').includes('full') ? 'full' : ''}`}>
+      <label className="field-label" htmlFor={textareaId}>
+        {label}
+      </label>
       <textarea
         ref={ref}
         id={textareaId}
         className={`input min-h-28 resize-y ${error ? 'input-error' : ''} ${className}`}
         aria-invalid={Boolean(error)}
-        aria-describedby={error ? `${textareaId}-error` : undefined}
+        aria-describedby={error ? `${textareaId}-error` : hint ? `${textareaId}-hint` : undefined}
         {...props}
       />
+      {!error && hint ? (
+        <span id={`${textareaId}-hint`} className="field-hint">
+          {hint}
+        </span>
+      ) : null}
       {error ? (
         <span id={`${textareaId}-error`} className="field-error" role="alert">
           {error}
         </span>
       ) : null}
-    </label>
+    </div>
   );
 });
 Textarea.displayName = 'Textarea';
@@ -133,8 +161,17 @@ export const Card = ({
     {children}
   </section>
 );
-export const PageTitle = ({ title, description }: { title: string; description?: string }) => (
+export const PageTitle = ({
+  title,
+  description,
+  eyebrow,
+}: {
+  title: string;
+  description?: string;
+  eyebrow?: string;
+}) => (
   <div className="page-title">
+    {eyebrow ? <span className="section-kicker">{eyebrow}</span> : null}
     <h1>{title}</h1>
     {description ? <p>{description}</p> : null}
   </div>
@@ -145,8 +182,30 @@ export const Loading = () => (
     در حال دریافت اطلاعات…
   </div>
 );
-export const Empty = ({ children = 'موردی برای نمایش وجود ندارد.' }: { children?: ReactNode }) => (
-  <div className="state">{children}</div>
+export const Empty = ({
+  children = 'هنوز موردی برای نمایش وجود ندارد.',
+}: {
+  children?: ReactNode;
+}) => (
+  <div className="state empty-state">
+    <span className="state-illustration" aria-hidden="true">
+      <svg viewBox="0 0 48 48" fill="none">
+        <path
+          d="M15 10h18a4 4 0 0 1 4 4v25H11V14a4 4 0 0 1 4-4Z"
+          fill="currentColor"
+          opacity=".12"
+        />
+        <path
+          d="M17 6h14v8H17zM16 24h16M16 31h10M11 16v23h26V16"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+    <p>{children}</p>
+  </div>
 );
 export const ErrorState = ({ onRetry }: { onRetry?: () => void }) => (
   <div className="state state-error">
@@ -179,29 +238,47 @@ const statusClassName = (status: string): string =>
 
 export const Select = forwardRef<
   HTMLSelectElement,
-  SelectHTMLAttributes<HTMLSelectElement> & { label: string; error?: string; children: ReactNode }
->(({ label, error, id, children, ...props }, ref) => {
+  SelectHTMLAttributes<HTMLSelectElement> & {
+    label: string;
+    error?: string;
+    hint?: string;
+    children: ReactNode;
+  }
+>(({ label, error, hint, id, children, ...props }, ref) => {
   const generatedId = useId();
   const selectId = id ?? props.name ?? generatedId;
   return (
-    <label className="field" htmlFor={selectId}>
-      <span className="field-label">{label}</span>
+    <div className="field">
+      <div className="field-label">
+        <label htmlFor={selectId}>{label}</label>
+        {props.required ? (
+          <span className="required-mark" aria-hidden="true">
+            {' '}
+            *
+          </span>
+        ) : null}
+      </div>
       <select
         ref={ref}
         id={selectId}
         className={`input ${error ? 'input-error' : ''}`}
         aria-invalid={Boolean(error)}
-        aria-describedby={error ? `${selectId}-error` : undefined}
+        aria-describedby={error ? `${selectId}-error` : hint ? `${selectId}-hint` : undefined}
         {...props}
       >
         {children}
       </select>
+      {!error && hint ? (
+        <span id={`${selectId}-hint`} className="field-hint">
+          {hint}
+        </span>
+      ) : null}
       {error ? (
         <span id={`${selectId}-error`} className="field-error" role="alert">
           {error}
         </span>
       ) : null}
-    </label>
+    </div>
   );
 });
 Select.displayName = 'Select';
@@ -258,7 +335,11 @@ export const LoadingButton = Button;
 
 export const PasswordInput = forwardRef<
   HTMLInputElement,
-  Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & { label: string; error?: string }
+  Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
+    label: string;
+    error?: string;
+    hint?: string;
+  }
 >(({ label, error, ...props }, ref) => {
   const [visible, setVisible] = useState(false);
   return (
@@ -276,6 +357,7 @@ export const PasswordInput = forwardRef<
           className="password-toggle"
           onClick={() => setVisible((value) => !value)}
           aria-label={visible ? 'پنهان کردن رمز عبور' : 'نمایش رمز عبور'}
+          aria-pressed={visible}
         >
           {visible ? 'پنهان' : 'نمایش'}
         </button>
@@ -361,11 +443,56 @@ export const Alert = ({
 );
 export const Toast = Alert;
 
-export const StatCard = ({ title, value }: { title: string; value: ReactNode }) => (
-  <div className="stat-card">
-    <span>{title}</span>
+export const StatCard = ({
+  title,
+  value,
+  icon,
+  caption,
+  tone = 'brand',
+}: {
+  title: string;
+  value: ReactNode;
+  icon?: ReactNode;
+  caption?: string;
+  tone?: 'brand' | 'blue' | 'amber' | 'rose';
+}) => (
+  <div className={`stat-card stat-${tone}`}>
+    <div className="stat-card-heading">
+      <span>{title}</span>
+      {icon ? (
+        <span className="stat-icon" aria-hidden="true">
+          {icon}
+        </span>
+      ) : null}
+    </div>
     <strong>{value}</strong>
+    {caption ? <small>{caption}</small> : null}
   </div>
+);
+
+export const FormSection = ({
+  title,
+  description,
+  number,
+  children,
+}: {
+  title: string;
+  description?: string;
+  number?: string;
+  children: ReactNode;
+}) => (
+  <fieldset className="form-section">
+    <legend className="form-section-title">
+      {number ? (
+        <span className="form-section-number" aria-hidden="true">
+          {number}
+        </span>
+      ) : null}
+      {title}
+    </legend>
+    {description ? <p className="form-section-description">{description}</p> : null}
+    <div className="form-grid">{children}</div>
+  </fieldset>
 );
 export const Skeleton = ({ className = '' }: { className?: string }) => (
   <div className={`skeleton ${className}`} aria-hidden="true" />
@@ -382,13 +509,17 @@ export const Dialog = ({
   title,
   children,
   onClose,
+  className = '',
 }: {
   open: boolean;
   title: string;
   children: ReactNode;
   onClose: () => void;
+  className?: string;
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const titleId = useId();
   useEffect(() => {
     if (!open) return undefined;
@@ -399,10 +530,12 @@ export const Dialog = ({
           'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ) ?? [],
       );
-    focusable()[0]?.focus();
+    (focusable()[0] ?? dialogRef.current)?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const close = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== 'Tab') return;
@@ -422,20 +555,38 @@ export const Dialog = ({
     document.addEventListener('keydown', close);
     return () => {
       document.removeEventListener('keydown', close);
+      document.body.style.overflow = previousOverflow;
       previous?.focus();
     };
-  }, [onClose, open]);
+  }, [open]);
   if (!open) return null;
   return (
-    <div className="dialog-backdrop" role="presentation">
+    <div
+      className="dialog-backdrop"
+      role="presentation"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div
         ref={dialogRef}
-        className="dialog"
+        className={`dialog ${className}`}
         role="dialog"
+        tabIndex={-1}
         aria-modal="true"
         aria-labelledby={titleId}
       >
-        <h2 id={titleId}>{title}</h2>
+        <div className="dialog-heading">
+          <h2 id={titleId}>{title}</h2>
+          <button
+            className="icon-button dialog-close"
+            type="button"
+            onClick={onClose}
+            aria-label="بستن پنجره"
+          >
+            ×
+          </button>
+        </div>
         {children}
       </div>
     </div>

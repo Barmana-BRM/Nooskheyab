@@ -2,7 +2,34 @@ import type {
   AvailabilityStatus,
   PrescriptionStatus,
   RegistrationStatus,
+  PharmacyResponseView,
 } from '@pharmacy-mvp/types';
+
+const availabilityPriority = { FULL_AVAILABLE: 0, PARTIAL_AVAILABLE: 1, NOT_AVAILABLE: 2 } as const;
+
+export const sortPharmacyResponses = (responses: PharmacyResponseView[]): PharmacyResponseView[] =>
+  [...responses].sort(
+    (first, second) =>
+      availabilityPriority[first.availabilityStatus] -
+      availabilityPriority[second.availabilityStatus],
+  );
+
+export const registrationStatusLabel = (status: string): string =>
+  ({
+    DRAFT: 'پیش‌نویس ثبت‌نام',
+    PENDING_APPROVAL: 'در انتظار تأیید',
+    APPROVED: 'تأییدشده',
+    REJECTED: 'ثبت‌نام تأیید نشد',
+    CHANGES_REQUESTED: 'نیازمند اصلاح',
+    SUSPENDED: 'فعالیت متوقف شده',
+  })[status] ?? status;
+
+export const documentStatusLabel = (status: string): string =>
+  ({
+    PENDING: 'در انتظار بررسی',
+    APPROVED: 'مدرک تأییدشده',
+    REJECTED: 'مدرک تأیید نشد',
+  })[status] ?? status;
 
 export const statusLabel = (
   status: PrescriptionStatus | AvailabilityStatus | RegistrationStatus | string,

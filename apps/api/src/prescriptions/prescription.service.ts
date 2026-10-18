@@ -915,7 +915,7 @@ export class PrescriptionService {
   async refreshAggregate(prescriptionId: string): Promise<PrescriptionStatus> {
     return this.prisma.$transaction(async (transaction) => {
       const locked = await transaction.$queryRaw<Array<{ id: string }>>(
-        Prisma.sql`SELECT "id" FROM "Prescription" WHERE "id" = ${prescriptionId} FOR UPDATE`,
+        Prisma.sql`SELECT "id" FROM "Prescription" WHERE "id" = ${prescriptionId}::uuid FOR UPDATE`,
       );
       if (!locked.length) throw new AppError('NOT_FOUND', 'درخواست موردنظر پیدا نشد.', 404);
 

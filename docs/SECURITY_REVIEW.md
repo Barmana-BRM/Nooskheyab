@@ -1,5 +1,11 @@
 # Security Review
 
+## UI redesign follow-up — 2026-10-18
+
+The changed UI, shared components and API-client trust boundaries were reviewed for private-token handling, stale account caches, URL parsing, unsafe HTML, upload controls, logout failure handling and authorization regressions. The browser fetch binding and a parameterized UUID row-lock query were repaired and verified against real services. Patient status queries now isolate credential changes without putting credentials in query keys and discard inactive private query caches. Login/logout clear account caches; failed server logout is visible instead of being presented as success.
+
+Capacitor Android/iOS were aligned to 7.6.9. Compatible targeted dependency updates installed `@nestjs/platform-express` 11.2.7, Multer 2.4.0 and proxy-addr 2.0.8. The final production audit still fails with five findings (three high, two moderate) in the existing Prisma/config/deepmerge-ts and Swagger/js-yaml chains. The full audit reports 22 findings, including development tooling (four critical, eleven high, seven moderate). These results are not a clean dependency audit or a production security certification. See [the redesign report](UI_REDESIGN_REPORT_FA.md) for executed checks and remaining native/deployment limits.
+
 ## Reviewed boundaries
 
 The review covers public prescription creation/status/mutations, authentication and refresh sessions, pharmacy RBAC and tenant queries, admin routes, upload/storage access, validation/error handling, logging/audit, Redis use, Nginx/Compose configuration, PWA caching, and Capacitor transport/storage configuration.

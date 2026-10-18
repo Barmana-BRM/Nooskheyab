@@ -1,5 +1,8 @@
 import '@fontsource-variable/vazirmatn';
 import './styles/index.css';
+import './styles/layout.css';
+import './styles/landing.css';
+import './styles/forms.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
@@ -17,7 +20,7 @@ if (Capacitor.isNativePlatform()) {
   void CapacitorApp.addListener('backButton', ({ canGoBack }) => {
     const openDialog = document.querySelector('[role="dialog"]');
     if (openDialog) {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       return;
     }
     if (canGoBack && window.history.length > 1) window.history.back();

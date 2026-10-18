@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ApiClient, type AuthStorageAdapter } from '@pharmacy-mvp/api-client';
 
 const jsonResponse = (body: unknown, status = 200): Response =>
@@ -8,6 +8,27 @@ const jsonResponse = (body: unknown, status = 200): Response =>
   });
 
 describe('ApiClient authentication lifecycle', () => {
+  it('calls the platform fetch with its global receiver', async () => {
+    vi.stubGlobal('fetch', async function (this: typeof globalThis) {
+      expect(this).toBe(globalThis);
+      return jsonResponse({ success: true, data: { connected: true }, requestId: 'receiver-test' });
+    });
+    try {
+      const client = new ApiClient({
+        baseUrl: 'https://app.example.com/api/v1',
+        authStorage: {
+          getAccessToken: () => null,
+          setAccessToken: () => undefined,
+          getRefreshToken: async () => null,
+          setRefreshToken: async () => undefined,
+        },
+      });
+      await expect(client.request('/insurance/base')).resolves.toEqual({ connected: true });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('refreshes an expired access token for auth/me before retrying', async () => {
     const state = {
       accessToken: 'expired',

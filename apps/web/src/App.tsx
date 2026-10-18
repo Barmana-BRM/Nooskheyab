@@ -139,13 +139,19 @@ const RouteFocus = () => {
 
   useEffect(() => {
     const focusHeading = window.setTimeout(() => {
+      const targetId = location.hash.slice(1);
+      if (targetId) {
+        document.getElementById(targetId)?.scrollIntoView({ block: 'start' });
+        return;
+      }
       const heading = document.querySelector<HTMLElement>('main h1, h1');
       if (!heading) return;
       if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
       heading.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }, 0);
     return () => window.clearTimeout(focusHeading);
-  }, [location.pathname]);
+  }, [location.pathname, location.hash]);
 
   return null;
 };

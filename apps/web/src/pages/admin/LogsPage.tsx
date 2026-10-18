@@ -35,7 +35,7 @@ export const LogsPage = () => {
     <>
       <PageTitle
         title="گزارش رویدادها"
-        description="Audit Log فقط برای مشاهده است و اطلاعات حساس آن حذف شده است."
+        description="رویدادهای ورود، بررسی نسخه‌ها و تغییرات سامانه را دنبال کنید."
       />
       <Card>
         <form

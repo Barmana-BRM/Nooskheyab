@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">سامانه نسخه دارویی</string>
-    <string name="title_activity_main">سامانه نسخه دارویی</string>
+    <string name="app_name">نسخه‌یاب</string>
+    <string name="title_activity_main">نسخه‌یاب</string>
     <string name="package_name">com.company.pharmacyprescription</string>
     <string name="custom_url_scheme">pharmacy-mvp</string>
 </resources>

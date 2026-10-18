@@ -56,7 +56,7 @@ async function bootstrap(): Promise<void> {
     const document = SwaggerModule.createDocument(
       app,
       new DocumentBuilder()
-        .setTitle('سامانه نسخه دارویی')
+        .setTitle('نسخه‌یاب | سامانه نسخه دارویی')
         .setDescription('REST API نسخه MVP')
         .setVersion('1.0')
         .addBearerAuth()

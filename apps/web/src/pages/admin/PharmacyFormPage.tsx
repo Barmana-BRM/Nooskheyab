@@ -112,7 +112,7 @@ export const PharmacyFormPage = () => {
     <main>
       <PageTitle
         title={isEdit ? 'ویرایش داروخانه' : 'افزودن داروخانه'}
-        description="اطلاعات داروخانه از سمت سرور اعتبارسنجی و در Audit Log ثبت می‌شود."
+        description="مشخصات، اطلاعات تماس و وضعیت فعالیت داروخانه را ثبت یا ویرایش کنید."
       />
       <Card>
         <form onSubmit={form.handleSubmit((value) => save.mutate(value))}>

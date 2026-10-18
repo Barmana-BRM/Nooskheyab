@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
-import { statusLabel } from '../../lib/status';
+import { registrationStatusLabel as statusLabel } from '../../lib/status';
 import {
   Button,
   Card,
@@ -36,10 +36,15 @@ export const PharmaciesPage = () => {
   if (query.isError) return <ErrorState onRetry={() => void query.refetch()} />;
   return (
     <>
-      <PageTitle title="داروخانه‌ها" description="فعال‌سازی و تعلیق با حفظ سوابق انجام می‌شود." />
+      <PageTitle
+        title="داروخانه‌ها"
+        description="اطلاعات داروخانه‌ها و وضعیت فعالیت آن‌ها را مدیریت کنید."
+      />
       <Card>
         <div className="form-actions" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
-          <span className="muted">فقط داروخانه‌های حذف‌نشده نمایش داده می‌شوند.</span>
+          <span className="muted">
+            {query.data.length.toLocaleString('fa-IR')} داروخانه در سامانه
+          </span>
           <Link className="btn btn-primary" to="/admin/pharmacies/create">
             افزودن داروخانه
           </Link>

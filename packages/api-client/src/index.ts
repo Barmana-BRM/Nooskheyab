@@ -38,7 +38,7 @@ export class ApiClient {
   constructor(options: ApiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
     this.authStorage = options.authStorage;
-    this.fetcher = options.fetcher ?? fetch;
+    this.fetcher = options.fetcher ?? globalThis.fetch.bind(globalThis);
   }
 
   async request<T>(path: string, init: RequestInit = {}, allowRefresh = true): Promise<T> {

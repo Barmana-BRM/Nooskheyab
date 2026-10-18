@@ -15,11 +15,11 @@
     "cap:ios": "npx cap open ios"
   },
   "dependencies": {
-    "@capacitor/android": "^7.0.1",
+    "@capacitor/android": "^7.6.9",
     "@capacitor/app": "^7.0.1",
     "@capacitor/browser": "^7.0.1",
     "@capacitor/core": "^7.0.1",
-    "@capacitor/ios": "^7.0.1",
+    "@capacitor/ios": "^7.6.9",
     "@capacitor/keyboard": "^7.0.1",
     "@capacitor/network": "^7.0.1",
     "@capacitor/splash-screen": "^7.0.1",
@@ -40,6 +40,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@capacitor/cli": "^7.0.1",
     "@playwright/test": "^1.49.1",
     "@testing-library/jest-dom": "^6.6.3",

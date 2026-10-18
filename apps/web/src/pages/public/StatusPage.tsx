@@ -1,63 +1,89 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Clock3, MapPin, XCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Building2,
+  Check,
+  CheckCircle2,
+  Clock3,
+  MapPin,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react';
+import { useEffect, useId, useState } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import type { PatientPrescriptionSummary, PharmacyResponseView } from '@pharmacy-mvp/types';
 import { api } from '../../lib/api';
 import { formatJalaliDateTime, remainingLabel } from '../../lib/date';
 import { readPatientToken, writePatientToken } from '../../lib/patient-token';
-import { statusLabel } from '../../lib/status';
+import { sortPharmacyResponses, statusLabel } from '../../lib/status';
 import { Button, Card, Dialog, Empty, ErrorState, Loading, StatusBadge } from '../../components/ui';
 
 export const StatusPage = () => {
   const { publicId = '' } = useParams();
   const location = useLocation();
-  const navigate = useNavigate();
-  const [token, setToken] = useState<string | null>(() =>
-    new URLSearchParams(location.search).get('token'),
-  );
+  const accessKey = useId();
+  const [accessVersion, setAccessVersion] = useState(0);
+  const [token, setToken] = useState<string | null>(null);
+  const [resolvingToken, setResolvingToken] = useState(true);
   const [selected, setSelected] = useState<PharmacyResponseView | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'cancel' | 'complete' | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const queryToken = new URLSearchParams(location.search).get('token');
+    if (queryToken)
+      window.history.replaceState({}, document.title, '/request/' + encodeURIComponent(publicId));
     let disposed = false;
-    void readPatientToken(publicId).then((storedToken) => {
-      const stored = queryToken ?? storedToken;
-      if (disposed || !stored) return;
-      setToken(stored);
-      void writePatientToken(publicId, stored);
-      if (queryToken) window.history.replaceState({}, document.title, `/request/${publicId}`);
-    });
+    setResolvingToken(true);
+    void (async () => {
+      try {
+        const accessToken = queryToken ?? (await readPatientToken(publicId));
+        if (disposed) return;
+        setToken(accessToken);
+        if (queryToken) await writePatientToken(publicId, queryToken);
+      } catch {
+        if (!disposed) setToken(queryToken);
+      } finally {
+        if (!disposed) {
+          setAccessVersion((version) => version + 1);
+          setResolvingToken(false);
+        }
+      }
+    })();
     return () => {
       disposed = true;
     };
   }, [location.search, publicId]);
   useEffect(() => {
-    const close = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelected(null);
-    };
-    window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
+    const interval = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(interval);
   }, []);
   const query = useQuery({
-    queryKey: ['patient-prescription', publicId],
+    queryKey: ['patient-prescription', publicId, accessKey, accessVersion],
+    gcTime: 0,
     queryFn: () =>
-      api.request<PatientPrescriptionSummary>(`/prescriptions/${encodeURIComponent(publicId)}`, {
+      api.request<PatientPrescriptionSummary>('/prescriptions/' + encodeURIComponent(publicId), {
         headers: { 'X-Prescription-Token': token ?? '' },
       }),
-    enabled: Boolean(publicId && token),
-    refetchInterval: (currentQuery) =>
+    enabled: Boolean(publicId && token) && !resolvingToken,
+    refetchInterval: (current) =>
       document.visibilityState === 'visible' &&
       navigator.onLine &&
-      (currentQuery.state.data?.status === 'PENDING' ||
-        currentQuery.state.data?.status === 'UNDER_REVIEW')
+      current.state.data &&
+      !['CANCELLED', 'COMPLETED', 'EXPIRED', 'SELECTED_PHARMACY'].includes(
+        current.state.data.status,
+      )
         ? 30_000
         : false,
     refetchIntervalInBackground: false,
   });
+  const refresh = () => {
+    setNow(Date.now());
+    void query.refetch();
+  };
   const select = useMutation({
     mutationFn: (pharmacyId: string) =>
-      api.request(`/prescriptions/${encodeURIComponent(publicId)}/select-pharmacy`, {
+      api.request('/prescriptions/' + encodeURIComponent(publicId) + '/select-pharmacy', {
         method: 'POST',
         headers: { 'X-Prescription-Token': token ?? '' },
         body: JSON.stringify({ pharmacyId }),
@@ -65,162 +91,277 @@ export const StatusPage = () => {
     onSuccess: () => {
       setActionError(null);
       setSelected(null);
-      void query.refetch();
+      refresh();
     },
     onError: (error) => {
       setSelected(null);
-      setActionError(error instanceof Error ? error.message : 'انتخاب داروخانه انجام نشد.');
+      setActionError(
+        error instanceof Error ? error.message : 'انتخاب داروخانه انجام نشد. دوباره تلاش کنید.',
+      );
+      refresh();
     },
   });
-  const cancel = useMutation({
-    mutationFn: () =>
-      api.request(`/prescriptions/${encodeURIComponent(publicId)}/cancel`, {
+  const action = useMutation({
+    mutationFn: (kind: 'cancel' | 'complete') =>
+      api.request('/prescriptions/' + encodeURIComponent(publicId) + '/' + kind, {
         method: 'POST',
         headers: { 'X-Prescription-Token': token ?? '' },
       }),
     onSuccess: () => {
       setActionError(null);
-      void query.refetch();
+      setConfirmAction(null);
+      refresh();
     },
-    onError: (error) =>
-      setActionError(error instanceof Error ? error.message : 'لغو درخواست انجام نشد.'),
-  });
-  const complete = useMutation({
-    mutationFn: () =>
-      api.request(`/prescriptions/${encodeURIComponent(publicId)}/complete`, {
-        method: 'POST',
-        headers: { 'X-Prescription-Token': token ?? '' },
-      }),
-    onSuccess: () => {
-      setActionError(null);
-      void query.refetch();
+    onError: (error) => {
+      setConfirmAction(null);
+      setActionError(
+        error instanceof Error ? error.message : 'عملیات انجام نشد. دوباره تلاش کنید.',
+      );
     },
-    onError: (error) =>
-      setActionError(error instanceof Error ? error.message : 'ثبت تکمیل درخواست انجام نشد.'),
   });
+  if (resolvingToken)
+    return (
+      <main className="status-page" id="main-content">
+        <Loading />
+      </main>
+    );
   if (!token)
     return (
-      <main className="status-page">
+      <main className="status-page" id="main-content">
         <Card>
-          <Empty>کد دسترسی این درخواست در این دستگاه موجود نیست.</Empty>
-          <Button onClick={() => navigate('/request')}>ثبت درخواست جدید</Button>
+          <h1>پیگیری درخواست</h1>
+          <Empty>برای دیدن این درخواست به لینک خصوصی آن نیاز دارید.</Empty>
+          <div className="button-row">
+            <Link className="btn btn-primary" to="/request/track">
+              ورود لینک پیگیری
+              <ArrowLeft size={17} aria-hidden="true" />
+            </Link>
+            <Link className="btn btn-secondary" to="/request">
+              ثبت درخواست جدید
+            </Link>
+          </div>
         </Card>
       </main>
     );
   if (query.isPending)
     return (
-      <main className="status-page">
+      <main className="status-page" id="main-content">
         <Loading />
       </main>
     );
   if (query.isError || !query.data)
     return (
-      <main className="status-page">
-        <ErrorState onRetry={() => void query.refetch()} />
+      <main className="status-page" id="main-content">
+        <Card>
+          <h1>دریافت وضعیت ممکن نشد</h1>
+          <ErrorState onRetry={refresh} />
+          <p className="muted">لینک خصوصی درخواست را بررسی کنید و دوباره تلاش کنید.</p>
+          <Link className="text-link" to="/request/track">
+            بازگشت به پیگیری درخواست
+            <ArrowLeft size={17} aria-hidden="true" />
+          </Link>
+        </Card>
       </main>
     );
   const data = query.data;
-  const isClosed = ['EXPIRED', 'CANCELLED', 'COMPLETED', 'SELECTED_PHARMACY'].includes(data.status);
+  const expired =
+    !data.selectedPharmacyId &&
+    !['CANCELLED', 'COMPLETED'].includes(data.status) &&
+    new Date(data.expiresAt).getTime() <= now;
+  const status = expired ? 'EXPIRED' : data.status;
+  const isClosed = ['EXPIRED', 'CANCELLED', 'COMPLETED', 'SELECTED_PHARMACY'].includes(status);
+  const responses = sortPharmacyResponses(data.responses);
+  const milestones = [
+    { label: 'ثبت درخواست', done: true },
+    {
+      label: 'بررسی داروخانه‌ها',
+      done:
+        data.respondedCount > 0 || status === 'UNDER_REVIEW' || Boolean(data.selectedPharmacyId),
+    },
+    { label: 'دریافت نتیجه', done: data.respondedCount > 0 },
+    { label: 'انتخاب داروخانه', done: Boolean(data.selectedPharmacyId) },
+  ];
   return (
-    <main className="status-page">
+    <main className="status-page" id="main-content">
       <div className="status-header">
         <div>
-          <h1>پیگیری درخواست {data.publicId}</h1>
-          <p className="muted">آخرین دریافت اطلاعات: {formatJalaliDateTime(new Date())}</p>
+          <span className="section-kicker">نسخه‌تان را از همین‌جا دنبال کنید</span>
+          <h1>
+            پیگیری درخواست <bdi>{data.publicId}</bdi>
+          </h1>
+          <p className="muted">
+            آخرین به‌روزرسانی: {formatJalaliDateTime(new Date(query.dataUpdatedAt))}
+          </p>
         </div>
-        <StatusBadge status={data.status} label={statusLabel(data.status)} />
+        <Button className="btn-secondary" loading={query.isFetching} onClick={refresh}>
+          <RefreshCw size={16} aria-hidden="true" />
+          به‌روزرسانی
+        </Button>
       </div>
-      <Card>
-        <div className="timeline">
-          <div className="timeline-item done">ثبت درخواست</div>
-          <div className={`timeline-item ${data.respondedCount ? 'done' : ''}`}>
-            بررسی داروخانه‌ها
-          </div>
-          <div
-            className={`timeline-item ${data.status === 'ACCEPTED' || data.status === 'PARTIAL' || data.selectedPharmacyId ? 'done' : ''}`}
-          >
-            دریافت نتیجه
-          </div>
-          <div className={`timeline-item ${data.selectedPharmacyId ? 'done' : ''}`}>
-            انتخاب داروخانه
-          </div>
-        </div>
-        <div className="button-row" style={{ justifyContent: 'space-between' }}>
-          <span className="muted">
-            {data.respondedCount} پاسخ از {data.pharmaciesCount} داروخانه
-          </span>
-          <span className="muted">
-            اعتبار: {isClosed ? statusLabel(data.status) : remainingLabel(data.expiresAt)}
+      <Card className="status-summary">
+        <div className="status-summary-heading">
+          <StatusBadge status={status} label={statusLabel(status)} />
+          <span>
+            <Clock3 size={15} aria-hidden="true" />{' '}
+            {isClosed ? statusLabel(status) : 'زمان باقی‌مانده: ' + remainingLabel(data.expiresAt)}
           </span>
         </div>
-        {actionError ? (
-          <div className="error-summary" role="alert">
-            {actionError}
-          </div>
-        ) : null}
-        {!isClosed ? (
-          <div className="form-actions">
-            <Button
-              className="btn-secondary"
-              onClick={() => {
-                if (window.confirm('آیا از لغو این درخواست مطمئن هستید؟')) cancel.mutate();
-              }}
-              loading={cancel.isPending}
+        <ol className="timeline" aria-label="مراحل درخواست">
+          {milestones.map((milestone, index) => (
+            <li key={milestone.label} className={'timeline-item' + (milestone.done ? ' done' : '')}>
+              <span className="timeline-marker" aria-hidden="true">
+                {milestone.done ? <Check size={16} /> : (index + 1).toLocaleString('fa-IR')}
+              </span>
+              <span>{milestone.label}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="status-counts">
+          <span>
+            <strong>{data.respondedCount.toLocaleString('fa-IR')}</strong> پاسخ از{' '}
+            {data.pharmaciesCount.toLocaleString('fa-IR')} داروخانه
+          </span>
+          {!isClosed ? (
+            <button
+              className="request-cancel-button"
+              type="button"
+              onClick={() => setConfirmAction('cancel')}
             >
               لغو درخواست
-            </Button>
-          </div>
-        ) : null}
+            </button>
+          ) : null}
+        </div>
       </Card>
+      {actionError ? (
+        <div className="error-summary" role="alert">
+          {actionError}
+        </div>
+      ) : null}
+      {status === 'EXPIRED' ? (
+        <div className="notice form-status-notice">
+          <p>
+            مهلت بررسی این درخواست تمام شده است. برای دریافت پاسخ‌های تازه، درخواست جدید ثبت کنید.
+          </p>
+          <Link className="text-link" to="/request">
+            ثبت درخواست جدید
+            <ArrowLeft size={17} aria-hidden="true" />
+          </Link>
+        </div>
+      ) : null}
+      {status === 'SELECTED_PHARMACY' ? (
+        <div className="alert alert-success" role="status">
+          <CheckCircle2 size={18} aria-hidden="true" /> داروخانه شما انتخاب شد. نشانی و ساعت کاری آن
+          را پیش از مراجعه بررسی کنید.
+        </div>
+      ) : null}
+      {status === 'COMPLETED' ? (
+        <div className="alert alert-success" role="status">
+          <CheckCircle2 size={18} aria-hidden="true" /> دریافت نسخه تکمیل شد. برایتان آرزوی سلامتی
+          داریم.
+        </div>
+      ) : null}
+      <div className="response-section-heading">
+        <h2>پاسخ داروخانه‌ها</h2>
+        <span className="muted">ابتدا پاسخ‌های موجودی کامل نمایش داده می‌شوند.</span>
+      </div>
       <div className="response-grid">
-        {data.responses.length ? (
-          data.responses.map((response) => (
+        {responses.length ? (
+          responses.map((response) => (
             <ResponseCard
               key={response.id}
               response={response}
+              selected={data.selectedPharmacyId === response.pharmacyId}
               onSelect={() => setSelected(response)}
-              disabled={!response.isSelectable || isClosed}
+              disabled={!response.isSelectable || isClosed || select.isPending}
             />
           ))
         ) : (
-          <div style={{ gridColumn: '1/-1' }}>
-            <Card>
-              <Empty>هنوز پاسخی از داروخانه‌ها ثبت نشده است.</Empty>
-            </Card>
-          </div>
+          <Card className="full">
+            <Empty>
+              {data.pharmaciesCount
+                ? 'هنوز پاسخی ثبت نشده است. به محض بررسی، پاسخ داروخانه‌ها اینجا نمایش داده می‌شود.'
+                : 'هنوز داروخانه‌ای برای بررسی این درخواست تعیین نشده است.'}
+            </Empty>
+          </Card>
         )}
       </div>
-      {data.status === 'SELECTED_PHARMACY' && data.selectedPharmacyId ? (
-        <Card className="sticky-actions">
-          <span>داروخانه انتخاب شده است.</span>
-          <Button onClick={() => complete.mutate()} loading={complete.isPending}>
-            دریافت نسخه را تکمیل کردم
+      {status === 'SELECTED_PHARMACY' ? (
+        <Card className="form-actions">
+          <span className="muted">بعد از مراجعه و دریافت نسخه، درخواست را تکمیل کنید.</span>
+          <Button onClick={() => setConfirmAction('complete')}>
+            نسخه را دریافت کردم
+            <CheckCircle2 size={17} aria-hidden="true" />
           </Button>
         </Card>
       ) : null}
-      {data.status === 'COMPLETED' ? (
-        <Card style={{ marginTop: '1rem' }}>
-          <CheckCircle2 color="#15803d" /> دریافت نسخه تکمیل شد.
-        </Card>
-      ) : null}
-      <Dialog open={Boolean(selected)} title="انتخاب داروخانه" onClose={() => setSelected(null)}>
+      <p className="auth-security">
+        <ShieldCheck size={16} aria-hidden="true" />
+        این صفحه خصوصی است؛ لینک آن را فقط نزد خود نگه دارید.
+      </p>
+      <Dialog
+        open={Boolean(selected)}
+        title="انتخاب داروخانه"
+        onClose={() => {
+          if (!select.isPending) setSelected(null);
+        }}
+      >
         {selected ? (
           <>
-            <p>با انتخاب «{selected.pharmacyName}»، پاسخ سایر داروخانه‌ها بسته می‌شود.</p>
+            <p>
+              با انتخاب «{selected.pharmacyName}»، پاسخ سایر داروخانه‌ها بسته می‌شود. انتخابتان را
+              تأیید می‌کنید؟
+            </p>
             <div className="detail-item">
               <strong>{selected.pharmacyName}</strong>
-              <div>{selected.address}</div>
+              <p className="muted">
+                {selected.city}، {selected.address}
+              </p>
             </div>
-            <div className="button-row" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
-              <Button className="btn-secondary" onClick={() => setSelected(null)}>
-                انصراف
-              </Button>
+            <div className="button-row">
               <Button onClick={() => select.mutate(selected.pharmacyId)} loading={select.isPending}>
                 تأیید انتخاب
+              </Button>
+              <Button
+                className="btn-secondary"
+                disabled={select.isPending}
+                onClick={() => setSelected(null)}
+              >
+                بازگشت
               </Button>
             </div>
           </>
         ) : null}
+      </Dialog>
+      <Dialog
+        open={Boolean(confirmAction)}
+        title={confirmAction === 'cancel' ? 'لغو درخواست نسخه' : 'ثبت دریافت نسخه'}
+        onClose={() => {
+          if (!action.isPending) setConfirmAction(null);
+        }}
+      >
+        <p>
+          {confirmAction === 'cancel'
+            ? 'با لغو درخواست، بررسی داروخانه‌ها متوقف می‌شود. از لغو مطمئنید؟'
+            : 'نسخه را از داروخانه منتخب دریافت کرده‌اید؟ با تأیید، این درخواست تکمیل می‌شود.'}
+        </p>
+        <div className="button-row">
+          <Button
+            className={confirmAction === 'cancel' ? 'btn-danger' : ''}
+            loading={action.isPending}
+            onClick={() => {
+              if (confirmAction) action.mutate(confirmAction);
+            }}
+          >
+            {confirmAction === 'cancel' ? 'بله، لغو شود' : 'بله، دریافت کردم'}
+          </Button>
+          <Button
+            className="btn-secondary"
+            disabled={action.isPending}
+            onClick={() => setConfirmAction(null)}
+          >
+            بازگشت
+          </Button>
+        </div>
       </Dialog>
     </main>
   );
@@ -230,36 +371,42 @@ const ResponseCard = ({
   response,
   onSelect,
   disabled,
+  selected,
 }: {
   response: PharmacyResponseView;
   onSelect: () => void;
   disabled: boolean;
+  selected: boolean;
 }) => (
-  <Card className="response-card">
+  <Card className={'response-card' + (selected ? ' selected' : '')}>
     <div className="response-top">
-      <h3>{response.pharmacyName}</h3>
+      <div className="response-pharmacy-title">
+        <span className="soft-icon">
+          <Building2 size={19} aria-hidden="true" />
+        </span>
+        <h3>{response.pharmacyName}</h3>
+      </div>
       <StatusBadge
-        status={response.availabilityStatus}
-        label={statusLabel(response.availabilityStatus)}
+        status={selected ? 'SELECTED_PHARMACY' : response.availabilityStatus}
+        label={selected ? 'داروخانه منتخب شما' : statusLabel(response.availabilityStatus)}
       />
     </div>
     <div className="response-meta">
       <span>
-        <MapPin size={15} style={{ verticalAlign: 'middle' }} /> {response.city}، {response.address}
+        <MapPin size={16} aria-hidden="true" />
+        {response.city}، {response.address}
       </span>
       <span>
-        <Clock3 size={15} style={{ verticalAlign: 'middle' }} /> پاسخ در{' '}
-        {formatJalaliDateTime(response.respondedAt)}
+        <Clock3 size={16} aria-hidden="true" />
+        ساعت کاری: {response.workingHours}
       </span>
-      <span>ساعت کاری: {response.workingHours}</span>
+      <span>زمان پاسخ: {formatJalaliDateTime(response.respondedAt)}</span>
     </div>
-    {response.description ? (
-      <p style={{ margin: 0, lineHeight: 1.8 }}>{response.description}</p>
-    ) : null}
-    {response.availabilityStatus === 'NOT_AVAILABLE' ? <XCircle color="#b91c1c" size={18} /> : null}
-    {response.availabilityStatus !== 'NOT_AVAILABLE' ? (
+    {response.description ? <p className="response-description">{response.description}</p> : null}
+    {response.availabilityStatus !== 'NOT_AVAILABLE' && !selected ? (
       <Button disabled={disabled} onClick={onSelect}>
         انتخاب این داروخانه
+        <ArrowLeft size={17} aria-hidden="true" />
       </Button>
     ) : null}
   </Card>

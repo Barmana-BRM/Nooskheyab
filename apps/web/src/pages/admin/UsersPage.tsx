@@ -117,7 +117,7 @@ export const UsersPage = () => {
     <>
       <PageTitle
         title="کاربران و نقش‌ها"
-        description="کاربران غیرفعال امکان ورود و نوسازی نشست ندارند."
+        description="حساب‌های کاربری، نقش‌ها و دسترسی به پنل را مدیریت کنید."
       />
       <Card>
         <h2 style={{ marginTop: 0, fontSize: '1.1rem' }}>ایجاد کاربر</h2>
@@ -169,7 +169,7 @@ export const UsersPage = () => {
             </Select>
           ) : null}
           <div className="form-actions full" style={{ marginTop: 0 }}>
-            <span className="muted">رمز عبور در سرور با Argon2id هش می‌شود.</span>
+            <span className="muted">رمز عبور را فقط در اختیار صاحب حساب قرار دهید.</span>
             <Button type="submit" loading={create.isPending}>
               ایجاد کاربر
             </Button>

@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
-import { statusLabel } from '../../lib/status';
+import { registrationStatusLabel as statusLabel } from '../../lib/status';
 import {
   Button,
   Card,
